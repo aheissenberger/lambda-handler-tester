@@ -2,6 +2,9 @@ import { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import eventHttpApi2 from './aws_events/httpapi2.js';
 import { detectFramework, getDefaultHandlerPath } from './library/framework.js';
+import { resolve } from 'node:path';
+import { streamifyResponse } from './library/streamifyResponse.js';
+import { awslambda } from './library/awslambda.js';
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
@@ -13,6 +16,7 @@ program
   .version(version)
   .name('lambda-handler-tester')
   .option('-h, --handler [PATH]', 'path to request handler')
+  .option('-s, --streaming', 'streaming handler', false)
   .option('-e, --event [PATH]', 'path to an json file with a valid event')
   .option('-c, --context [PATH]', 'path to an json file with a valid context')
   .option('-p, --path [PATH]', 'path to request', '/')
@@ -71,13 +75,28 @@ if (options.context) {
   }
 }
 
-const { handler } = await import(handlerPath);
-
-const response = await handler(eventData, contextData);
-
-console.log(response);
-console.log('-'.repeat(80));
-if (response?.isBase64Encoded === true) {
-  console.log(Buffer.from(response.body, 'base64').toString());
+if (options.debug) {
+  console.log('Options:', options);
+  console.log('handlerPath:', handlerPath);
+  console.log('streaming:', options.streaming);
 }
-process.exit(0);
+
+if (options.streaming) {
+  (globalThis as any).awslambda = awslambda();
+}
+
+try {
+  const { handler } = await import(resolve(handlerPath));
+
+  const response = await handler(eventData, contextData);
+  if (options.streaming) process.exit(0);
+  console.log(response);
+  console.log('-'.repeat(80));
+  if (response?.isBase64Encoded === true) {
+    console.log(Buffer.from(response.body, 'base64').toString());
+  }
+  process.exit(0);
+} catch (e) {
+  console.error(e);
+  process.exit(1);
+}
