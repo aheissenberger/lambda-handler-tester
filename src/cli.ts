@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import eventHttpApi2 from './aws_events/httpapi2.js';
 import { detectFramework, getDefaultHandlerPath } from './library/framework.js';
 
-const packageJson = require('../package.json');
+const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
+
 const version: string = packageJson.version;
 
 const program = new Command();
