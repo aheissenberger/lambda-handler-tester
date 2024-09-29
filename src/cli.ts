@@ -3,14 +3,27 @@ import { existsSync, readFileSync } from 'node:fs';
 import eventHttpApi2 from './aws_events/httpapi2.js';
 import { detectFramework, getDefaultHandlerPath } from './library/framework.js';
 import { resolve } from 'node:path';
-import { streamifyResponse } from './library/streamifyResponse.js';
-import { awslambda } from './library/awslambda.js';
+import { awslambdaSimulator } from './library/awslambda-simulator.js';
+import chalk from 'chalk';
+import { Performance } from './library/performanceObserver.js';
+import prettyMs from 'pretty-ms';
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
 const version: string = packageJson.version;
 
 const program = new Command();
+const error = chalk.bold.red;
+const warning = chalk.hex('#FFA500'); // Orange color
+
+function myParseInt(value: string) {
+  // parseInt takes a string and a radix
+  const parsedValue = parseInt(value, 10);
+  if (isNaN(parsedValue)) {
+    throw 'Not a number.';
+  }
+  return parsedValue;
+}
 
 program
   .version(version)
@@ -20,6 +33,12 @@ program
   .option('-e, --event [PATH]', 'path to an json file with a valid event')
   .option('-c, --context [PATH]', 'path to an json file with a valid context')
   .option('-p, --path [PATH]', 'path to request', '/')
+  .option('--decode-base64', 'decode base64 body', false)
+  .option('--header', 'only show header without body', false)
+  .option('-v, --verbose', 'enables verbose logging', false)
+  .option('--response-time', 'measure the response time', false)
+  .option('--repeat <number>', 'repeat request [n] times', myParseInt, 1)
+  .option('--silent', 'no output', false)
   .option('-d, --debug', 'enables verbose logging', false)
   .parse(process.argv);
 
@@ -29,6 +48,7 @@ let eventData = null;
 let contextData = null;
 let framework;
 let handlerPath = options.handler;
+let awsLambdaSimulator;
 
 if (handlerPath) {
   if (!existsSync(handlerPath)) {
@@ -81,20 +101,71 @@ if (options.debug) {
   console.log('streaming:', options.streaming);
 }
 
-if (options.streaming) {
-  (globalThis as any).awslambda = awslambda();
+if (options.verbose) {
+  console.log('Event:', eventData);
+  console.log('Context:', contextData);
 }
 
-try {
-  const { handler } = await import(resolve(handlerPath));
+if (options.streaming) {
+  awsLambdaSimulator = awslambdaSimulator();
+  (globalThis as any).awslambda = awsLambdaSimulator.awslambda;
+}
 
-  const response = await handler(eventData, contextData);
-  if (options.streaming) process.exit(0);
-  console.log(response);
-  console.log('-'.repeat(80));
-  if (response?.isBase64Encoded === true) {
-    console.log(Buffer.from(response.body, 'base64').toString());
+const perfObserver = new Performance(options.responseTime);
+
+try {
+  const { handler: handlerImported } = await import(resolve(handlerPath));
+
+  const handler = options.streaming
+    ? awsLambdaSimulator?.streamifyHandler(handlerImported)
+    : handlerImported;
+
+  const handlerWrapped = perfObserver.timerify(handler);
+
+  let responseData;
+
+  responseData = await handlerWrapped(eventData, contextData);
+  for (let i = 1; i < options.repeat; i++) {
+    responseData = await handlerWrapped(eventData, contextData);
   }
+  if (options.responseTime) {
+    await perfObserver.finalize();
+    console.log(perfObserver.getTable());
+    console.log('Total running time:', prettyMs(perfObserver.getTotalTime()));
+  }
+  if (options.silent || options.responseTime) process.exit(0);
+
+  if (options.streaming) {
+    console.log(responseData);
+    process.exit(0);
+  }
+
+  const isBase64Encoded = responseData?.isBase64Encoded === true;
+
+  if (options.header) {
+    if (responseData.body) delete responseData.body;
+    console.log(responseData);
+    process.exit(0);
+  }
+
+  if (isBase64Encoded) {
+    responseData.isBase64Encoded = false;
+    responseData.body = Buffer.from(responseData.body, 'base64').toString();
+  }
+
+  if (options.verbose) {
+    console.log(responseData);
+    if (isBase64Encoded) {
+      console.log(
+        warning(
+          chalk.bold('⚠️ Note:') + 'The original response was base64 encoded!'
+        )
+      );
+    }
+  } else {
+    console.log(responseData?.body ?? '');
+  }
+
   process.exit(0);
 } catch (e) {
   console.error(e);
