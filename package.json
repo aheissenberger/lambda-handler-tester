@@ -1,6 +1,6 @@
 {
   "name": "lambda-handler-tester",
-  "version": "0.0.4-development",
+  "version": "0.0.5-development",
   "description": "A command line tool to test AWS Lambda handler local",
   "type": "module",
   "files": [
@@ -52,7 +52,8 @@
     "commander": "^12.1.0",
     "easy-table": "^1.2.0",
     "pretty-ms": "^9.1.0",
-    "summary": "^2.1.0"
+    "summary": "^2.1.0",
+    "chalk": "^5.3.0"
   },
   "devDependencies": {
     "@eslint/compat": "^1.1.1",
@@ -63,7 +64,6 @@
     "@types/node": "^22.7.4",
     "@typescript-eslint/eslint-plugin": "^8.7.0",
     "@typescript-eslint/parser": "^8.7.0",
-    "chalk": "^5.3.0",
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "eslint": "^9.11.1",
     "eslint-config-prettier": "^9.1.0",
