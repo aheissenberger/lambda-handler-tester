@@ -8,6 +8,10 @@ import chalk from 'chalk';
 import { Performance } from './library/performanceObserver.js';
 import prettyMs from 'pretty-ms';
 
+if (!existsSync('package.json')) {
+  console.error('Error: package.json not found!');
+  process.exit(1);
+}
 const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
 
 const version: string = packageJson.version;
