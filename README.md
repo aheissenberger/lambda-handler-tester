@@ -23,11 +23,19 @@ Usage: lambda-handler-tester [options]
 
 Options:
   -V, --version         output the version number
-  -h, --handler [PATH]  path to request handler
+  --handler [PATH]      path to request handler
+  -s, --streaming       streaming handler (default: false)
   -e, --event [PATH]    path to an json file with a valid event
+  -c, --context [PATH]  path to an json file with a valid context
   -p, --path [PATH]     path to request (default: "/")
+  --decode-base64       decode base64 body (default: false)
+  --header              only show header without body (default: false)
+  -v, --verbose         enables verbose logging (default: false)
+  --response-time       measure the response time (default: false)
+  --repeat <number>     repeat request [n] times (default: 1)
+  --silent              no output (default: false)
   -d, --debug           enables verbose logging (default: false)
-  --help                display help for command
+  -h, --help            display help for command
 
 Examples:
 
