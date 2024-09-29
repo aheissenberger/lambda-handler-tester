@@ -28,7 +28,7 @@ function myParseInt(value: string) {
 program
   .version(version)
   .name('lambda-handler-tester')
-  .option('-h, --handler [PATH]', 'path to request handler')
+  .option('--handler [PATH]', 'path to request handler')
   .option('-s, --streaming', 'streaming handler', false)
   .option('-e, --event [PATH]', 'path to an json file with a valid event')
   .option('-c, --context [PATH]', 'path to an json file with a valid context')
@@ -107,7 +107,9 @@ if (options.verbose) {
 }
 
 if (options.streaming) {
-  awsLambdaSimulator = awslambdaSimulator();
+  awsLambdaSimulator = awslambdaSimulator(
+    options.silent || options.responseTime
+  );
   (globalThis as any).awslambda = awsLambdaSimulator.awslambda;
 }
 
@@ -134,11 +136,6 @@ try {
     console.log('Total running time:', prettyMs(perfObserver.getTotalTime()));
   }
   if (options.silent || options.responseTime) process.exit(0);
-
-  if (options.streaming) {
-    console.log(responseData);
-    process.exit(0);
-  }
 
   const isBase64Encoded = responseData?.isBase64Encoded === true;
 

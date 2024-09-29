@@ -1,6 +1,6 @@
 {
   "name": "lambda-handler-tester",
-  "version": "0.0.3-development",
+  "version": "0.0.4-development",
   "description": "A command line tool to test AWS Lambda handler local",
   "type": "module",
   "files": [

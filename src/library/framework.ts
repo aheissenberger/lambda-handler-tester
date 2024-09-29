@@ -28,7 +28,7 @@ export function getDefaultHandlerPath(framework: framework): string {
     case 'vike':
       return 'entry_aws_lambda.ts';
     case 'react-server':
-      return '.aws-lambda/output/functions/index.func/index.mjs';
+      return '.aws-react-server/output/functions/index.func/index.mjs';
     default:
       return 'handler.js';
   }

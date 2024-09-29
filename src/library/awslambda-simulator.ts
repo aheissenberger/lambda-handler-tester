@@ -1,11 +1,11 @@
 import { APIGatewayProxyEventV2, Callback, Context } from 'aws-lambda';
 import { Writable } from 'node:stream';
-export const awslambdaSimulator = () => {
+export const awslambdaSimulator = (silent: boolean) => {
   let responseStream: Writable;
   let responseResult: Buffer;
   responseStream = new Writable({
     write(chunk, encoding, callback) {
-      //console.log(chunk.toString());
+      if (!silent) process.stdout.write(chunk.toString());
       if (!responseResult) {
         responseResult = chunk;
       } else {
@@ -46,6 +46,7 @@ export const awslambdaSimulator = () => {
       ) =>
       async (event: APIGatewayProxyEventV2, context: Context) => {
         await handler(event, responseStream, context);
+        await new Promise<void>(resolve => responseStream.on('close', resolve));
         return responseResult.toString('utf-8');
       },
   };
