@@ -8,13 +8,26 @@ import chalk from 'chalk';
 import { Performance } from './library/performanceObserver.js';
 import prettyMs from 'pretty-ms';
 
-if (!existsSync('package.json')) {
-  console.error('Error: package.json not found!');
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const toolPackageJsonPath = `${__dirname}/../package.json`;
+if (!existsSync(toolPackageJsonPath)) {
+  console.error('Error: tool package.json not found!');
   process.exit(1);
 }
-const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
+const toolPackageJson = JSON.parse(readFileSync(toolPackageJsonPath, 'utf-8'));
 
-const version: string = packageJson.version;
+const version: string = toolPackageJson.version;
+
+const packageJsonPath = `package.json`;
+if (!existsSync(packageJsonPath)) {
+  console.error('Error: ./package.json not found!');
+  process.exit(1);
+}
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
 
 const program = new Command();
 const error = chalk.bold.red;
