@@ -14,7 +14,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const toolPackageJsonPath = `${__dirname}/../package.json`;
-console.log('toolPackageJsonPath:', toolPackageJsonPath);
+
 if (!existsSync(toolPackageJsonPath)) {
   console.error('Error: tool package.json not found!');
   process.exit(1);
