@@ -8,7 +8,7 @@
 [![Commitizen Friendly][commitizen-img]][commitizen-url]
 [![Semantic Release][semantic-release-img]][semantic-release-url]
 
-> My awesome command-line tool
+> Test AWS Lambda handler built with javascript on the command line. This tool loads the javascript and call the handler function with the provided event data. Handler which can handler streaming are supported when using the flag `-s`.
 
 ## Install
 
@@ -39,8 +39,8 @@ Options:
 
 Examples:
 
-  $ my-command --version
-  1.0.0
+  $ lambda-handler-tester --version
+  0.0.15-development
 ```
 
 [build-img]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml/badge.svg
