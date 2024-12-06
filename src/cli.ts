@@ -23,11 +23,9 @@ const toolPackageJson = JSON.parse(readFileSync(toolPackageJsonPath, 'utf-8'));
 const version: string = toolPackageJson.version;
 
 const packageJsonPath = `package.json`;
-if (!existsSync(packageJsonPath)) {
-  console.error('Error: ./package.json not found!');
-  process.exit(1);
-}
-const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+const packageJson = existsSync(packageJsonPath)
+  ? JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+  : { dependencies: {} };
 
 const program = new Command();
 const error = chalk.bold.red;
