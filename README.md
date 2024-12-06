@@ -10,16 +10,10 @@
 
 > Test AWS Lambda handler built with javascript on the command line. This tool loads the javascript and call the handler function with the provided event data. Handler which can handler streaming are supported when using the flag `-s`.
 
-## Install
-
-```bash
-npm install lambda-handler-tester
-```
-
 ## Usage
 
 ```bash
-Usage: lambda-handler-tester [options]
+Usage: pnpm dlx lambda-handler-tester [options]
 
 Options:
   -V, --version         output the version number
@@ -39,9 +33,20 @@ Options:
 
 Examples:
 
-  $ lambda-handler-tester --version
-  0.0.15-development
+  $ pnpm dlx lambda-handler-tester
+  0.0.xx-development
 ```
+
+### Framework detection
+
+These frameworks are detected:
+
+- [@lazarv/react-server](https://react-server.dev)
+- [Waku](https://waku.gg)
+- [Vike](https://vike.dev)
+
+If your network is not detected you will need to provide the path to the file with the AWS Lambda Handler:
+`$ pnpm dlx lambda-handler-tester --handler ./aws-lambda-output/handler.mjs`
 
 [build-img]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml/badge.svg
 [build-url]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml
