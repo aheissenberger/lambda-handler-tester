@@ -34,8 +34,12 @@ export const awslambdaSimulator = (silent: boolean) => {
         ) => any
       ) =>
       async (event: APIGatewayProxyEventV2, context: Context) => {
+        const responseStreamFinished = new Promise<void>((resolve, reject) => {
+          responseStream.on('close', resolve);
+          responseStream.on('error', reject);
+        });
         await handler(event, responseStream, context);
-        await new Promise<void>(resolve => responseStream.on('close', resolve));
+        await responseStreamFinished;
         return responseStream.getBufferedData().toString('utf-8');
       },
   };
