@@ -162,7 +162,7 @@ import { dirname } from 'path';
 
     if (options.repeat > 1) {
       process.stdout.write(`\nRepeat ${options.repeat - 1} times: `);
-      for (let i = 0; i < options.repeat; i++) {
+      for (let i = 1; i < options.repeat; i++) {
         const progress = Math.floor((i / options.repeat) * 100);
         if (progress % 10 === 0) {
           process.stdout.write(` ${String(progress).padStart(3, ' ')}%`);
