@@ -1,5 +1,5 @@
-import awsLambdaAdapter from "@hattip/adapter-aws-lambda/streaming";
-//import awsLambdaAdapter from "@hattip/adapter-aws-lambda";
+//import awsLambdaAdapter from "@hattip/adapter-aws-lambda/streaming";
+import awsLambdaAdapter from "@hattip/adapter-aws-lambda";
 
 const hattipHandler = (context) => {
   const { pathname } = new URL(context.request.url);

@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 'use strict';
 
-import '../lib/cli.js';
+import '../dist/cli.js';

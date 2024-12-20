@@ -34,6 +34,18 @@ export class Performance {
     }
   }
 
+  init() {
+    this.startTime = performance.now();
+    this.instanceId = Math.floor(performance.now() * 100);
+
+    this.fnObserver = new PerformanceObserver(items => {
+      items.getEntries().forEach(entry => {
+        this.entries.push(entry);
+      });
+    });
+    this.fnObserver.observe({ entryTypes: ['function'] });
+  }
+
   timerify(fn: any) {
     return this.isEnabled ? performance.timerify(fn) : fn;
   }

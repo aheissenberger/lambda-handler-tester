@@ -1,6 +1,6 @@
-import { APIGatewayProxyEventV2, Callback, Context } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, Callback, Context } from 'aws-lambda';
 import { Writable } from 'node:stream';
-import { ResponseStream } from './ResponseStream.js';
+import { ResponseStream } from './ResponseStream.ts';
 export const awslambdaSimulator = (silent: boolean) => {
   let responseStream = new ResponseStream({ silent });
 

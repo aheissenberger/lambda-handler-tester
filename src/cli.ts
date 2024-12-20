@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
-import eventHttpApi2 from './aws_events/httpapi2.js';
-import { detectFramework, getDefaultHandlerPath } from './library/framework.js';
+import eventHttpApi2 from './aws_events/httpapi2.ts';
+import { detectFramework, getDefaultHandlerPath } from './library/framework.ts';
 import { resolve } from 'node:path';
-import { awslambdaSimulator } from './library/awslambda-simulator.js';
+import { awslambdaSimulator } from './library/awslambda-simulator.ts';
 import chalk from 'chalk';
-import { Performance } from './library/performanceObserver.js';
+import { Performance } from './library/performanceObserver.ts';
 import prettyMs from 'pretty-ms';
 
 import { fileURLToPath } from 'url';
@@ -143,14 +143,35 @@ import { dirname } from 'path';
       ? awsLambdaSimulator?.streamifyHandler(handlerImported)
       : handlerImported;
 
+    const handlerRepeat = options.streaming
+      ? awsLambdaSimulator?.streamifyHandler(handlerImported)
+      : handlerImported;
+
     const handlerWrapped = perfObserver.timerify(handler);
 
     let responseData;
 
     responseData = await handlerWrapped(eventData, contextData);
-    for (let i = 1; i < options.repeat; i++) {
-      responseData = await handlerWrapped(eventData, contextData);
+    if (options.responseTime) {
+      await perfObserver.finalize();
+      console.log(`\nFirst run:`);
+      console.log(perfObserver.getTable());
+      perfObserver.reset();
+      perfObserver.init();
     }
+
+    if (options.repeat > 1) {
+      process.stdout.write(`\nRepeat ${options.repeat - 1} times: `);
+      for (let i = 0; i < options.repeat; i++) {
+        const progress = Math.floor((i / options.repeat) * 100);
+        if (progress % 10 === 0) {
+          process.stdout.write(` ${String(progress).padStart(3, ' ')}%`);
+          process.stdout.write('\x1b[5D'); // Move cursor 4 characters left
+        }
+        responseData = await handlerWrapped(eventData, contextData);
+      }
+    }
+    process.stdout.write(` 100%\n`);
     if (options.responseTime) {
       await perfObserver.finalize();
       console.log(perfObserver.getTable());
