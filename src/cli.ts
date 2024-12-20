@@ -56,6 +56,11 @@ import { dirname } from 'path';
     .option('--header', 'only show header without body', false)
     .option('-v, --verbose', 'enables verbose logging', false)
     .option('--response-time', 'measure the response time', false)
+    .option(
+      '--profile-cpu',
+      'profile JavaScript CPU usage to "aws-lambda-handler.cpuprofile"',
+      false
+    )
     .option('--repeat <number>', 'repeat request [n] times', myParseInt, 1)
     .option('--silent', 'no output', false)
     .option('-d, --debug', 'enables verbose logging', false)
@@ -141,11 +146,14 @@ import { dirname } from 'path';
 
     const handler = options.streaming
       ? awsLambdaSimulator?.streamifyHandler(handlerImported)
-      : handlerImported;
-
-    const handlerRepeat = options.streaming
-      ? awsLambdaSimulator?.streamifyHandler(handlerImported)
-      : handlerImported;
+      : options.profileCpu
+        ? (eventData, contextData) => {
+            console.profile('aws-lambda-handler');
+            const result = handlerImported(eventData, contextData);
+            console.profileEnd('aws-lambda-handler');
+            return result;
+          }
+        : handlerImported;
 
     const handlerWrapped = perfObserver.timerify(handler);
 
@@ -170,8 +178,9 @@ import { dirname } from 'path';
         }
         responseData = await handlerWrapped(eventData, contextData);
       }
+      process.stdout.write(` 100%\n`);
     }
-    process.stdout.write(` 100%\n`);
+
     if (options.responseTime) {
       await perfObserver.finalize();
       console.log(perfObserver.getTable());

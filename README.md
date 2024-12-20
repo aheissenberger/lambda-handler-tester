@@ -27,6 +27,7 @@ Options:
   -v, --verbose         enables verbose logging (default: false)
   --response-time       measure the response time (default: false)
   --repeat <number>     repeat request [n] times (default: 1)
+  --profile-cpu         profile JavaScript CPU usage to "aws-lambda-handler.cpuprofile" (default: false)
   --silent              no output (default: false)
   -d, --debug           enables verbose logging (default: false)
   -h, --help            display help for command
@@ -47,6 +48,33 @@ These frameworks are detected:
 
 If your network is not detected you will need to provide the path to the file with the AWS Lambda Handler:
 `$ pnpm dlx lambda-handler-tester --handler ./aws-lambda-output/handler.mjs`
+
+### Options
+
+#### Measure Response Time
+
+The option `--response-time` together with the option `--repeat <number>` allows to measure response time for first and repeated calls.
+
+**Report:**
+
+```
+First run:
+Name  size  min   max   median  sum
+----  ----  ----  ----  ------  ----
+         1  2.24  2.24    2.24  2.24
+
+Repeat 100 times:  100%
+Name  size  min   max   median  sum
+----  ----  ----  ----  ------  ----
+       100  0.02  0.75    0.02  4.78
+Total running time: 5ms
+```
+
+#### JavaScript CPU Profile
+
+The option `--profile-cpu` allows to profile the CPU usage of the handler to the file `aws-lambda-handler.cpuprofile`. The handler needs to be [called from NodeJS](https://nodejs.org/api/console.html#inspector-only-methods) with the `--inspect` flag to generate the file or at least run in a VS Code JavaScript Debug Terminal.
+
+> **Streaming** handlers are not supported!
 
 [build-img]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml/badge.svg
 [build-url]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml
