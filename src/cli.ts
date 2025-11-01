@@ -167,6 +167,9 @@ import { dirname } from 'path';
 
   const perfObserver = new Performance(options.responseTime);
 
+  // Set NODE_ENV to production for handler execution
+  process.env.NODE_ENV = 'production';
+
   try {
     const { handler: handlerImported } = await import(resolve(handlerPath));
 
