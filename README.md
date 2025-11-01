@@ -30,12 +30,20 @@ Options:
   --profile-cpu         profile JavaScript CPU usage to "aws-lambda-handler.cpuprofile" (default: false)
   --silent              no output (default: false)
   -d, --debug           enables verbose logging (default: false)
+  -w, --watch <port>    start HTTP server on port and watch for requests
+  --fetch <url>         fetch URL and convert to API Gateway V2 GET event
   -h, --help            display help for command
 
 Examples:
 
   $ pnpm dlx lambda-handler-tester
   0.0.xx-development
+
+  $ pnpm dlx lambda-handler-tester --watch 3000
+  🚀 Lambda handler server listening on http://localhost:3000
+
+  $ pnpm dlx lambda-handler-tester --fetch "https://example.com/api/users?id=123"
+  # Converts the URL to an API Gateway V2 GET event and passes it to your handler
 ```
 
 ### Framework detection
@@ -75,6 +83,108 @@ Total running time: 5ms
 The option `--profile-cpu` allows to profile the CPU usage of the handler to the file `aws-lambda-handler.cpuprofile`. The handler needs to be [called from NodeJS](https://nodejs.org/api/console.html#inspector-only-methods) with the `--inspect` flag to generate the file or at least run in a VS Code JavaScript Debug Terminal.
 
 > **Streaming** handlers are not supported!
+
+#### Fetch URL Mode
+
+The `--fetch <url>` option converts any URL into an AWS API Gateway V2 GET event. This is useful for testing how your handler would process requests to specific URLs.
+
+**Features:**
+
+- Converts URL to proper API Gateway V2 event format
+- Extracts path, query parameters, and host information
+- Sets appropriate headers including protocol (http/https)
+- Supports custom ports
+- Perfect for testing web scraping or proxy handlers
+
+**Usage:**
+
+```bash
+# Fetch a simple URL
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api/data"
+
+# Fetch with query parameters
+$ pnpm dlx lambda-handler-tester --fetch "https://api.github.com/users/octocat?tab=repos"
+
+# Fetch with custom port
+$ pnpm dlx lambda-handler-tester --fetch "http://localhost:8080/test"
+
+# With verbose logging to see the generated event
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com" --verbose
+```
+
+The generated event includes:
+
+- `rawPath`: The URL pathname
+- `rawQueryString`: URL-encoded query string
+- `queryStringParameters`: Parsed query parameters
+- `headers`: Standard HTTP headers including host, user-agent, accept, etc.
+- `requestContext.http.method`: Always "GET"
+- `x-forwarded-proto`: Protocol (http or https)
+- `x-forwarded-port`: Port number
+
+See `examples/fetch_handler.mjs` for an example handler that processes fetch events.
+
+#### Watch Server Mode
+
+The `--watch <port>` option starts a local HTTP server that converts all incoming HTTP requests to AWS API Gateway V2 events and forwards them to your Lambda handler. This is useful for local development and testing.
+
+**Features:**
+
+- Converts HTTP requests to API Gateway V2 event format
+- Handles all HTTP methods (GET, POST, PUT, DELETE, etc.)
+- Properly processes headers, cookies, query parameters, and request body
+- Supports base64 encoding for binary content
+- **Supports streaming handlers** with `--streaming` flag
+- Real-time request/response logging
+- Graceful shutdown with Ctrl+C
+
+**Usage:**
+
+```bash
+# Start server on port 3000
+$ pnpm dlx lambda-handler-tester --watch 3000
+
+# With verbose logging
+$ pnpm dlx lambda-handler-tester --watch 3000 --verbose
+
+# With a specific handler
+$ pnpm dlx lambda-handler-tester --handler ./my-handler.mjs --watch 8080
+
+# With streaming support
+$ pnpm dlx lambda-handler-tester --handler ./streaming-handler.mjs --streaming --watch 3000
+```
+
+**Example output:**
+
+```
+🚀 Lambda handler server listening on http://localhost:3000
+   Press Ctrl+C to stop
+
+→ GET /
+← 200 GET / (23ms)
+→ POST /api/data
+← 200 POST /api/data (15ms)
+```
+
+See `examples/watch_server_handler.mjs` for a complete example handler.
+See `examples/watch_server_streaming_handler.mjs` for a streaming handler example.
+
+**API Gateway V2 Event Format:**
+
+The watch server converts HTTP requests to the AWS API Gateway HTTP API payload format version 2.0, which includes:
+
+- `version`: Always "2.0"
+- `routeKey`: Route identifier (default: "$default")
+- `rawPath`: The request path
+- `rawQueryString`: URL-encoded query string
+- `cookies`: Array of cookie strings
+- `headers`: All request headers (lowercase keys)
+- `queryStringParameters`: Parsed query parameters
+- `requestContext`: Metadata about the request (method, sourceIp, userAgent, etc.)
+- `body`: Request body (base64 encoded for binary content)
+- `isBase64Encoded`: Boolean indicating if body is base64 encoded
+
+Reference: [AWS API Gateway HTTP API payload format](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-develop-integrations-lambda.html)
 
 [build-img]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml/badge.svg
 [build-url]: https://github.com/ryansonshine/typescript-npm-cli-template/actions/workflows/release.yml

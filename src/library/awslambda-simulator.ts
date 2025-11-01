@@ -20,7 +20,15 @@ export const awslambdaSimulator = (silent: boolean) => {
         },
       HttpResponseStream: {
         from(responseStream: Writable, metadata: any) {
-          //TODOD: implement writing metadata to responseStream
+          // Store metadata in the ResponseStream if it's our custom implementation
+          if (responseStream instanceof ResponseStream) {
+            if (metadata?.headers?.['Content-Type']) {
+              responseStream.setContentType(metadata.headers['Content-Type']);
+            }
+            // Store status code and other headers for potential future use
+            (responseStream as any)._statusCode = metadata?.statusCode;
+            (responseStream as any)._headers = metadata?.headers;
+          }
           return responseStream;
         },
       },

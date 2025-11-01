@@ -7,6 +7,8 @@ import { awslambdaSimulator } from './library/awslambda-simulator.ts';
 import chalk from 'chalk';
 import { Performance } from './library/performanceObserver.ts';
 import prettyMs from 'pretty-ms';
+import { startWatchServer } from './library/watchServer.ts';
+import { urlToApiGatewayV2Event } from './library/urlToApiGatewayV2.ts';
 
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -64,6 +66,15 @@ import { dirname } from 'path';
     .option('--repeat <number>', 'repeat request [n] times', myParseInt, 1)
     .option('--silent', 'no output', false)
     .option('-d, --debug', 'enables verbose logging', false)
+    .option(
+      '-w, --watch <port>',
+      'start HTTP server on port and watch for requests',
+      myParseInt
+    )
+    .option(
+      '--fetch <url>',
+      'fetch URL and convert to API Gateway V2 GET event'
+    )
     .parse(process.argv);
 
   const options = program.opts();
@@ -99,6 +110,21 @@ import { dirname } from 'path';
       eventData = JSON.parse(readFileSync(eventPath, { encoding: 'utf-8' }));
     } catch (e) {
       console.error(`Error: invalid JSON: ${eventPath}`);
+      process.exit(1);
+    }
+  } else if (options.fetch) {
+    // Convert URL to API Gateway V2 event
+    try {
+      eventData = urlToApiGatewayV2Event(options.fetch);
+      if (options.verbose) {
+        console.log(chalk.blue(`Fetching URL: ${options.fetch}`));
+      }
+    } catch (error) {
+      console.error(
+        chalk.red(
+          `Error: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
       process.exit(1);
     }
   } else {
@@ -147,13 +173,29 @@ import { dirname } from 'path';
     const handler = options.streaming
       ? awsLambdaSimulator?.streamifyHandler(handlerImported)
       : options.profileCpu
-        ? (eventData, contextData) => {
+        ? (eventData: any, contextData: any) => {
             console.profile('aws-lambda-handler');
             const result = handlerImported(eventData, contextData);
             console.profileEnd('aws-lambda-handler');
             return result;
           }
         : handlerImported;
+
+    // Watch mode - start HTTP server
+    if (options.watch) {
+      console.log(
+        chalk.blue(`Starting watch mode on port ${options.watch}...`)
+      );
+      startWatchServer({
+        port: options.watch,
+        handler,
+        verbose: options.verbose || options.debug,
+        contextData,
+        streaming: options.streaming,
+      });
+      // Watch mode runs indefinitely, so we return here
+      return;
+    }
 
     const handlerWrapped = perfObserver.timerify(handler);
 
