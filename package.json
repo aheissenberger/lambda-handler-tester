@@ -12,7 +12,6 @@
     "lambda-handler-tester": "./bin/index.js"
   },
   "scripts": {
-    "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent||'')) { console.error('\\nError: This repository uses pnpm. Please install pnpm and run `pnpm install`.\\n'); process.exit(1) }\"",
     "start": "NODE_NO_WARNINGS=1 node --experimental-strip-types  src/cli.ts $@",
     "start:dist": "node ./dist/cli.js",
     "build": "tsdown",
@@ -63,7 +62,7 @@
   "homepage": "https://github.com/aheissenberger/lambda-handler-tester#readme",
   "dependencies": {
     "chalk": "^5.6.2",
-    "commander": "^12.1.0",
+    "commander": "^14.0.2",
     "easy-table": "^1.2.0",
     "pretty-ms": "^9.3.0",
     "summary": "^2.1.0"
