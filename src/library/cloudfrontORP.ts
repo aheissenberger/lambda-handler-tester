@@ -58,7 +58,7 @@ function applyAllViewerExceptHost(
   headers.via =
     '2.0 ' + randomBytes(8).toString('hex') + '.cloudfront.net (CloudFront)';
   headers['x-amz-cf-id'] =
-    randomBytes(56)
+    randomBytes(64)
       .toString('base64')
       .replace(/[+/=]/g, c => (c === '+' ? '-' : c === '/' ? '_' : '')) + '==';
 
@@ -107,7 +107,7 @@ function applyAllViewerExceptHost(
 
   // Add API Gateway V2 host header if requested
   if (addApiGatewayV2Host) {
-    headers.host = 'lj7qvxw7cf.execute-api.eu-west-1.amazonaws.com';
+    headers.host = 'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com';
   }
 
   return {

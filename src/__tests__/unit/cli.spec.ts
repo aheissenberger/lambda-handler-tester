@@ -5,9 +5,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 describe('cli', () => {
-  it('should exist', async () => {
+  it('should export main function', async () => {
     const cli = await import(resolve(__dirname, '../../cli'));
 
-    expect(cli).toBeTruthy();
+    expect(cli.main).toBeDefined();
+    expect(typeof cli.main).toBe('function');
   });
 });

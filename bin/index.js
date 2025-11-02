@@ -1,4 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-import '../dist/cli.js';
+import { main } from '../dist/cli.js';
+
+main();

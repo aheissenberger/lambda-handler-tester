@@ -13,7 +13,7 @@ import { urlToApiGatewayV2Event } from './library/urlToApiGatewayV2.ts';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-(async () => {
+export async function main() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const toolPackageJsonPath = `${__dirname}/../package.json`;
@@ -296,4 +296,9 @@ import { dirname } from 'path';
     console.error(e);
     process.exit(1);
   }
-})();
+}
+
+// Only run main() when executed directly (not when imported for testing)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

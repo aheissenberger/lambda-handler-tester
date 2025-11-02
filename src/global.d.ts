@@ -4,3 +4,5 @@ declare module 'summary' {
   const Summary: any;
   export default Summary;
 }
+
+/// <reference types="vitest/globals" />

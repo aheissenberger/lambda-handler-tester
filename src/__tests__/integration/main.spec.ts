@@ -6,14 +6,21 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const bin = resolve(__dirname, './bin.js');
+const binPath = resolve(__dirname, '../../../bin/index.js');
 
-describe('my-command', () => {
-  it('should display the help contents', async () => {
-    const { stdout } = await execa(bin, ['--help'], {
-      env: { TS_NODE_FILES: 'true' },
-    });
+describe('CLI integration', () => {
+  it('should display help when --help flag is passed', async () => {
+    const { stdout } = await execa('node', [binPath, '--help']);
 
-    expect(stdout).toContain('Usage: my-command [options]');
+    expect(stdout).toContain('Usage: lambda-handler-tester');
+    expect(stdout).toContain('--handler');
+    expect(stdout).toContain('--watch');
+    expect(stdout).toContain('--fetch');
+  });
+
+  it('should display version when --version flag is passed', async () => {
+    const { stdout } = await execa('node', [binPath, '--version']);
+
+    expect(stdout).toMatch(/\d+\.\d+\.\d+/);
   });
 });
