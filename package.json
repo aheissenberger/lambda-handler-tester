@@ -14,14 +14,14 @@
   "scripts": {
     "start": "NODE_NO_WARNINGS=1 node --experimental-strip-types  src/cli.ts $@",
     "start:dist": "node ./dist/cli.js",
-    "build": "tsup",
+    "build": "tsdown",
     "clean": "rm -rf ./dist/",
     "cm": "cz",
     "semantic-release": "semantic-release",
     "test:watch": "jest --watch",
-    "test": "echo jest"
+    "test": "jest"
   },
-  "tsup": {
+  "tsdown": {
     "format": [
       "esm"
     ],
@@ -70,7 +70,7 @@
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
     "@types/aws-lambda": "^8.10.157",
     "@types/jest": "^29.5.14",
-    "@types/node": "^22.18.13",
+    "@types/node": "^24.9.2",
     "conventional-changelog-conventionalcommits": "^8.0.0",
     "execa": "^9.6.0",
     "husky": "^9.1.7",
@@ -80,7 +80,7 @@
     "semantic-release": "^24.2.9",
     "streaming": "link:@hattip/adapter-aws-lambda/streaming",
     "ts-jest": "^29.4.5",
-    "tsup": "^8.5.0"
+    "tsdown": "^0.15.12"
   },
   "config": {
     "commitizen": {
