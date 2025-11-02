@@ -77,7 +77,7 @@ export async function main() {
     )
     .option(
       '--cf-orp <name>',
-      'simulate CloudFront Origin Request Policy (supported: AllViewerExceptHost)'
+      'simulate CloudFront Origin Request Policy (supported: AllViewerExceptHostHeader)'
     )
     .option(
       '--api-gateway-v2',
@@ -91,13 +91,15 @@ export async function main() {
   // Build CloudFront Origin Request Policy options
   let cfOrpOptions = undefined;
   if (options.cfOrp) {
-    if (options.cfOrp !== 'AllViewerExceptHost') {
+    if (options.cfOrp !== 'AllViewerExceptHostHeader') {
       console.error(
         chalk.red(
           `Error: Unsupported CloudFront Origin Request Policy: ${options.cfOrp}`
         )
       );
-      console.error(chalk.yellow('Supported policies: AllViewerExceptHost'));
+      console.error(
+        chalk.yellow('Supported policies: AllViewerExceptHostHeader')
+      );
       process.exit(1);
     }
     cfOrpOptions = {

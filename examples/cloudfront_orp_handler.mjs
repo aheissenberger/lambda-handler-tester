@@ -2,12 +2,12 @@
  * Example Lambda handler that demonstrates CloudFront Origin Request Policy header handling
  * 
  * Test with:
- * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --fetch "https://example.com/path?query=value" --cf-orp AllViewerExceptHost --verbose
- * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --fetch "https://example.com/path?query=value" --cf-orp AllViewerExceptHost --api-gateway-v2 --verbose
+ * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --fetch "https://example.com/path?query=value" --cf-orp AllViewerExceptHostHeader --verbose
+ * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --fetch "https://example.com/path?query=value" --cf-orp AllViewerExceptHostHeader --api-gateway-v2 --verbose
  * 
  * Or with watch mode:
- * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --watch 3000 --cf-orp AllViewerExceptHost --verbose
- * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --watch 3000 --cf-orp AllViewerExceptHost --api-gateway-v2 --verbose
+ * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --watch 3000 --cf-orp AllViewerExceptHostHeader --verbose
+ * node bin/index.js --handler examples/cloudfront_orp_handler.mjs --watch 3000 --cf-orp AllViewerExceptHostHeader --api-gateway-v2 --verbose
  * 
  * Then test with curl:
  * curl -H "Host: original.example.com" -H "Origin: https://example.com" -H "Referer: https://example.com/page" http://localhost:3000/

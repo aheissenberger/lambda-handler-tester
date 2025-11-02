@@ -32,7 +32,7 @@ Options:
   -d, --debug           enables verbose logging (default: false)
   -w, --watch <port>    start HTTP server on port and watch for requests
   --fetch <url>         fetch URL and convert to API Gateway V2 GET event
-  --cf-orp <name>       simulate CloudFront Origin Request Policy (supported: AllViewerExceptHost)
+  --cf-orp <name>       simulate CloudFront Origin Request Policy (supported: AllViewerExceptHostHeader)
   --api-gateway-v2      add API Gateway V2 host header (use with --cf-orp) (default: false)
   -h, --help            display help for command
 
@@ -47,7 +47,7 @@ Examples:
   $ pnpm dlx lambda-handler-tester --fetch "https://example.com/api/users?id=123"
   # Converts the URL to an API Gateway V2 GET event and passes it to your handler
 
-  $ pnpm dlx lambda-handler-tester --fetch "https://example.com" --cf-orp AllViewerExceptHost --api-gateway-v2
+  $ pnpm dlx lambda-handler-tester --fetch "https://example.com" --cf-orp AllViewerExceptHostHeader --api-gateway-v2
   # Simulates CloudFront Origin Request Policy with API Gateway V2 host header
 ```
 
@@ -135,7 +135,7 @@ The `--cf-orp <name>` option simulates CloudFront Origin Request Policies by mod
 
 **Supported Policies:**
 
-- `AllViewerExceptHost`: Forwards all viewer headers except Host, Origin, and Referer
+- `AllViewerExceptHostHeader`: Forwards all viewer headers except Host, Origin, and Referer
 
 **Features:**
 
@@ -164,13 +164,13 @@ The `--cf-orp <name>` option simulates CloudFront Origin Request Policies by mod
 
 ```bash
 # With fetch mode - simulate CloudFront ORP
-$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHost
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHostHeader
 
 # With fetch mode - add API Gateway V2 host header
-$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHost --api-gateway-v2
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHostHeader --api-gateway-v2
 
 # With watch mode
-$ pnpm dlx lambda-handler-tester --watch 3000 --cf-orp AllViewerExceptHost --api-gateway-v2
+$ pnpm dlx lambda-handler-tester --watch 3000 --cf-orp AllViewerExceptHostHeader --api-gateway-v2
 
 # Test with curl (headers will be transformed)
 $ curl -H "Host: original.com" -H "Origin: https://example.com" http://localhost:3000/
@@ -191,7 +191,7 @@ $ curl -H "Host: original.com" -H "Origin: https://example.com" http://localhost
 }
 ```
 
-**After** (With `--cf-orp AllViewerExceptHost`):
+**After** (With `--cf-orp AllViewerExceptHostHeader`):
 
 ```json
 {
@@ -232,7 +232,7 @@ $ curl -H "Host: original.com" -H "Origin: https://example.com" http://localhost
 >
 > In watch mode, `x-forwarded-proto` and `cloudfront-forwarded-proto` reflect the incoming request's protocol (typically `http` for local servers), and `x-forwarded-port` mirrors it (80 for http, 443 for https). In fetch mode, they default to `https` and port `443`.
 
-**After** (With `--cf-orp AllViewerExceptHost --api-gateway-v2`):
+**After** (With `--cf-orp AllViewerExceptHostHeader --api-gateway-v2`):
 
 ```json
 {

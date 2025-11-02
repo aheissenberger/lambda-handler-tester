@@ -18,14 +18,14 @@ export interface CloudFrontORPOptions {
 
 /**
  * Applies CloudFront Origin Request Policy transformations to an API Gateway V2 event
- * Currently supports: AllViewerExceptHost
+ * Currently supports: AllViewerExceptHostHeader
  */
 export function applyCloudFrontORP(
   event: APIGatewayProxyEventV2,
   options: CloudFrontORPOptions
 ): APIGatewayProxyEventV2 {
-  if (options.policy === 'AllViewerExceptHost') {
-    return applyAllViewerExceptHost(event, options);
+  if (options.policy === 'AllViewerExceptHostHeader') {
+    return applyAllViewerExceptHostHeader(event, options);
   }
 
   throw new Error(
@@ -34,14 +34,14 @@ export function applyCloudFrontORP(
 }
 
 /**
- * Applies AllViewerExceptHost CloudFront Origin Request Policy
+ * Applies AllViewerExceptHostHeader CloudFront Origin Request Policy
  * - Removes: host, origin, referer headers
  * - Adds: via, x-amz-cf-id headers
  * - Adds CloudFront viewer headers (device type, geo-location, protocol info)
  * - Adds x-forwarded-* headers for CloudFront forwarding
  * - Optionally adds API Gateway V2 host header
  */
-function applyAllViewerExceptHost(
+function applyAllViewerExceptHostHeader(
   event: APIGatewayProxyEventV2,
   opts: CloudFrontORPOptions
 ): APIGatewayProxyEventV2 {
@@ -49,7 +49,7 @@ function applyAllViewerExceptHost(
   const sourceIp = opts.sourceIp || '127.0.0.1';
   const headers = { ...event.headers };
 
-  // Remove headers per AllViewerExceptHost policy
+  // Remove headers per AllViewerExceptHostHeader policy
   delete headers.host;
   delete headers.origin;
   delete headers.referer;

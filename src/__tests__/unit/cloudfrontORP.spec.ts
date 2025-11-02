@@ -35,10 +35,10 @@ describe('CloudFront Origin Request Policy', () => {
     isBase64Encoded: false,
   };
 
-  describe('AllViewerExceptHost policy', () => {
+  describe('AllViewerExceptHostHeader policy', () => {
     it('should remove host, origin, and referer headers', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.headers.host).toBeUndefined();
@@ -48,7 +48,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should add via header with CloudFront format', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.headers.via).toBeDefined();
@@ -59,7 +59,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should add x-amz-cf-id header', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.headers['x-amz-cf-id']).toBeDefined();
@@ -68,7 +68,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should preserve other headers', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.headers['user-agent']).toBe('test-agent');
@@ -77,7 +77,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should add API Gateway V2 host header when addApiGatewayV2Host is true', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
         addApiGatewayV2Host: true,
       });
 
@@ -88,7 +88,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should not add host header when addApiGatewayV2Host is false', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
         addApiGatewayV2Host: false,
       });
 
@@ -97,7 +97,7 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should preserve all event properties except headers', () => {
       const result = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.version).toBe(baseEvent.version);
@@ -124,10 +124,10 @@ describe('CloudFront Origin Request Policy', () => {
   describe('Multiple calls generate different values', () => {
     it('should generate different via headers on each call', () => {
       const result1 = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
       const result2 = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result1.headers.via).not.toBe(result2.headers.via);
@@ -135,10 +135,10 @@ describe('CloudFront Origin Request Policy', () => {
 
     it('should generate different x-amz-cf-id headers on each call', () => {
       const result1 = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
       const result2 = applyCloudFrontORP(baseEvent, {
-        policy: 'AllViewerExceptHost',
+        policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result1.headers['x-amz-cf-id']).not.toBe(
