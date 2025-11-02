@@ -110,8 +110,18 @@ function applyAllViewerExceptHostHeader(
     headers.host = 'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com';
   }
 
+  // Update requestContext with API Gateway V2 domain if requested
+  const requestContext = addApiGatewayV2Host
+    ? {
+        ...event.requestContext,
+        domainName: 'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com',
+        domainPrefix: 'lj6qvkw6cf',
+      }
+    : event.requestContext;
+
   return {
     ...event,
     headers,
+    requestContext,
   };
 }

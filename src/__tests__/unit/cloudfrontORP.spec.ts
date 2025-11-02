@@ -95,7 +95,55 @@ describe('CloudFront Origin Request Policy', () => {
       expect(result.headers.host).toBeUndefined();
     });
 
-    it('should preserve all event properties except headers', () => {
+    it('should update requestContext.domainName when addApiGatewayV2Host is true', () => {
+      const result = applyCloudFrontORP(baseEvent, {
+        policy: 'AllViewerExceptHostHeader',
+        addApiGatewayV2Host: true,
+      });
+
+      expect(result.requestContext.domainName).toBe(
+        'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com'
+      );
+    });
+
+    it('should update requestContext.domainPrefix when addApiGatewayV2Host is true', () => {
+      const result = applyCloudFrontORP(baseEvent, {
+        policy: 'AllViewerExceptHostHeader',
+        addApiGatewayV2Host: true,
+      });
+
+      expect(result.requestContext.domainPrefix).toBe('lj6qvkw6cf');
+    });
+
+    it('should preserve original requestContext.domainName when addApiGatewayV2Host is false', () => {
+      const result = applyCloudFrontORP(baseEvent, {
+        policy: 'AllViewerExceptHostHeader',
+        addApiGatewayV2Host: false,
+      });
+
+      expect(result.requestContext.domainName).toBe(
+        baseEvent.requestContext.domainName
+      );
+      expect(result.requestContext.domainPrefix).toBe(
+        baseEvent.requestContext.domainPrefix
+      );
+    });
+
+    it('should set both host header and requestContext properties when addApiGatewayV2Host is true', () => {
+      const result = applyCloudFrontORP(baseEvent, {
+        policy: 'AllViewerExceptHostHeader',
+        addApiGatewayV2Host: true,
+      });
+
+      const expectedDomain = 'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com';
+      const expectedPrefix = 'lj6qvkw6cf';
+
+      expect(result.headers.host).toBe(expectedDomain);
+      expect(result.requestContext.domainName).toBe(expectedDomain);
+      expect(result.requestContext.domainPrefix).toBe(expectedPrefix);
+    });
+
+    it('should preserve all event properties except headers and requestContext when addApiGatewayV2Host is false', () => {
       const result = applyCloudFrontORP(baseEvent, {
         policy: 'AllViewerExceptHostHeader',
       });
@@ -106,6 +154,30 @@ describe('CloudFront Origin Request Policy', () => {
       expect(result.rawQueryString).toBe(baseEvent.rawQueryString);
       expect(result.requestContext).toEqual(baseEvent.requestContext);
       expect(result.isBase64Encoded).toBe(baseEvent.isBase64Encoded);
+    });
+
+    it('should preserve all requestContext fields except domainName and domainPrefix when addApiGatewayV2Host is true', () => {
+      const result = applyCloudFrontORP(baseEvent, {
+        policy: 'AllViewerExceptHostHeader',
+        addApiGatewayV2Host: true,
+      });
+
+      expect(result.requestContext.accountId).toBe(
+        baseEvent.requestContext.accountId
+      );
+      expect(result.requestContext.apiId).toBe(baseEvent.requestContext.apiId);
+      expect(result.requestContext.http).toEqual(baseEvent.requestContext.http);
+      expect(result.requestContext.requestId).toBe(
+        baseEvent.requestContext.requestId
+      );
+      expect(result.requestContext.routeKey).toBe(
+        baseEvent.requestContext.routeKey
+      );
+      expect(result.requestContext.stage).toBe(baseEvent.requestContext.stage);
+      expect(result.requestContext.time).toBe(baseEvent.requestContext.time);
+      expect(result.requestContext.timeEpoch).toBe(
+        baseEvent.requestContext.timeEpoch
+      );
     });
   });
 

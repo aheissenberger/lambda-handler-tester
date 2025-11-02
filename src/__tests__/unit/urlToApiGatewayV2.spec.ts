@@ -160,4 +160,73 @@ describe('urlToApiGatewayV2Event', () => {
     expect(event.queryStringParameters?.['filter[name]']).toBe('john');
     expect(event.queryStringParameters?.sort).toBe('-created');
   });
+
+  describe('CloudFront Origin Request Policy integration', () => {
+    it('should apply CloudFront ORP when cfOrp option is provided', () => {
+      const url = 'https://example.com/test';
+      const event = urlToApiGatewayV2Event(url, {
+        cfOrp: {
+          policy: 'AllViewerExceptHostHeader',
+        },
+      });
+
+      // Host header should be removed by CloudFront ORP
+      expect(event.headers.host).toBeUndefined();
+      // CloudFront headers should be present
+      expect(event.headers.via).toBeDefined();
+      expect(event.headers['x-amz-cf-id']).toBeDefined();
+      expect(event.headers['cloudfront-viewer-country']).toBe('DE');
+    });
+
+    it('should add API Gateway V2 host header when addApiGatewayV2Host is true', () => {
+      const url = 'https://example.com/test';
+      const event = urlToApiGatewayV2Event(url, {
+        cfOrp: {
+          policy: 'AllViewerExceptHostHeader',
+          addApiGatewayV2Host: true,
+        },
+      });
+
+      expect(event.headers.host).toBe(
+        'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com'
+      );
+    });
+
+    it('should update requestContext when addApiGatewayV2Host is true', () => {
+      const url = 'https://example.com/test';
+      const event = urlToApiGatewayV2Event(url, {
+        cfOrp: {
+          policy: 'AllViewerExceptHostHeader',
+          addApiGatewayV2Host: true,
+        },
+      });
+
+      expect(event.requestContext.domainName).toBe(
+        'lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com'
+      );
+      expect(event.requestContext.domainPrefix).toBe('lj6qvkw6cf');
+    });
+
+    it('should preserve original domain in requestContext when addApiGatewayV2Host is false', () => {
+      const url = 'https://api.example.com/test';
+      const event = urlToApiGatewayV2Event(url, {
+        cfOrp: {
+          policy: 'AllViewerExceptHostHeader',
+          addApiGatewayV2Host: false,
+        },
+      });
+
+      expect(event.requestContext.domainName).toBe('api.example.com');
+      expect(event.requestContext.domainPrefix).toBe('api');
+    });
+
+    it('should preserve original domain when cfOrp is not provided', () => {
+      const url = 'https://subdomain.example.com/test';
+      const event = urlToApiGatewayV2Event(url);
+
+      expect(event.headers.host).toBe('subdomain.example.com');
+      expect(event.requestContext.domainName).toBe('subdomain.example.com');
+      expect(event.requestContext.domainPrefix).toBe('subdomain');
+    });
+  });
 });
