@@ -1,6 +1,6 @@
 {
   "name": "lambda-handler-tester",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A command line tool to test AWS Lambda handler local",
   "type": "module",
   "files": [
@@ -20,7 +20,9 @@
     "semantic-release": "semantic-release",
     "test:watch": "vitest",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "publish": "publish",
+    "prepublishOnly": "npm run build"
   },
   "tsdown": {
     "format": [
