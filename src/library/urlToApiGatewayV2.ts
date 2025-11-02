@@ -1,11 +1,20 @@
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+import {
+  applyCloudFrontORP,
+  type CloudFrontORPOptions,
+} from './cloudfrontORP.js';
+
+export interface UrlToApiGatewayV2Options {
+  cfOrp?: CloudFrontORPOptions;
+}
 
 /**
  * Converts a URL to an AWS API Gateway V2 event for a GET request
  * This is useful for testing handlers with real webpage URLs
  */
 export function urlToApiGatewayV2Event(
-  urlString: string
+  urlString: string,
+  options?: UrlToApiGatewayV2Options
 ): APIGatewayProxyEventV2 {
   let url: URL;
 
@@ -87,6 +96,14 @@ export function urlToApiGatewayV2Event(
     },
     isBase64Encoded: false,
   };
+
+  // Apply CloudFront Origin Request Policy if specified
+  if (options?.cfOrp) {
+    return applyCloudFrontORP(event, {
+      ...options.cfOrp,
+      sourceIp: '127.0.0.1',
+    });
+  }
 
   return event;
 }

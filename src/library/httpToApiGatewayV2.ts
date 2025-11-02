@@ -1,6 +1,14 @@
 import type { IncomingMessage } from 'node:http';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { URL } from 'node:url';
+import {
+  applyCloudFrontORP,
+  type CloudFrontORPOptions,
+} from './cloudfrontORP.js';
+
+export interface HttpToApiGatewayV2Options {
+  cfOrp?: CloudFrontORPOptions;
+}
 
 /**
  * Converts an HTTP IncomingMessage to an AWS API Gateway V2 event
@@ -9,7 +17,8 @@ import { URL } from 'node:url';
  */
 export async function httpToApiGatewayV2(
   req: IncomingMessage,
-  rawBody?: Buffer
+  rawBody?: Buffer,
+  options?: HttpToApiGatewayV2Options
 ): Promise<APIGatewayProxyEventV2> {
   const url = new URL(
     req.url || '/',
@@ -75,6 +84,25 @@ export async function httpToApiGatewayV2(
     req.socket.remoteAddress ||
     '127.0.0.1';
 
+  // Derive device characteristics from User-Agent (used for CloudFront viewer flags)
+  const ua = headers['user-agent'] || '';
+  const isAndroidViewer = /Android/i.test(ua);
+  const isIOSViewer = /(iPhone|iPad|iPod)/i.test(ua);
+  const isSmartTVViewer =
+    /(SmartTV|HbbTV|Tizen|Web0S|WebOS|AppleTV|BRAVIA|Roku|AFTT|AFTM|AFTS)/i.test(
+      ua
+    );
+  const isTabletViewer = /(Tablet|iPad)/i.test(ua);
+  const isMobileViewer =
+    /Mobile/i.test(ua) || isAndroidViewer || (isIOSViewer && !isTabletViewer);
+  const isDesktopViewer = !(
+    isMobileViewer ||
+    isTabletViewer ||
+    isSmartTVViewer
+  );
+  // Determine forwarded protocol (default to http for local watch server)
+  const forwardedProto = headers['x-forwarded-proto'] || 'http';
+
   // Build the API Gateway V2 event
   const event: APIGatewayProxyEventV2 = {
     version: '2.0',
@@ -114,6 +142,21 @@ export async function httpToApiGatewayV2(
 
   // Add stage variables if needed (usually not used in local development)
   // stageVariables: undefined,
+
+  // Apply CloudFront Origin Request Policy if specified
+  if (options?.cfOrp) {
+    return applyCloudFrontORP(event, {
+      ...options.cfOrp,
+      sourceIp,
+      isAndroidViewer,
+      isIOSViewer,
+      isSmartTVViewer,
+      isTabletViewer,
+      isMobileViewer,
+      isDesktopViewer,
+      forwardedProto,
+    });
+  }
 
   return event;
 }

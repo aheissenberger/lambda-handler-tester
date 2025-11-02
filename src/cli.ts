@@ -75,9 +75,36 @@ import { dirname } from 'path';
       '--fetch <url>',
       'fetch URL and convert to API Gateway V2 GET event'
     )
+    .option(
+      '--cf-orp <name>',
+      'simulate CloudFront Origin Request Policy (supported: AllViewerExceptHost)'
+    )
+    .option(
+      '--api-gateway-v2',
+      'add API Gateway V2 host header (use with --cf-orp)',
+      false
+    )
     .parse(process.argv);
 
   const options = program.opts();
+
+  // Build CloudFront Origin Request Policy options
+  let cfOrpOptions = undefined;
+  if (options.cfOrp) {
+    if (options.cfOrp !== 'AllViewerExceptHost') {
+      console.error(
+        chalk.red(
+          `Error: Unsupported CloudFront Origin Request Policy: ${options.cfOrp}`
+        )
+      );
+      console.error(chalk.yellow('Supported policies: AllViewerExceptHost'));
+      process.exit(1);
+    }
+    cfOrpOptions = {
+      policy: options.cfOrp,
+      addApiGatewayV2Host: options.apiGatewayV2 === true,
+    };
+  }
 
   let eventData = null;
   let contextData = null;
@@ -115,7 +142,9 @@ import { dirname } from 'path';
   } else if (options.fetch) {
     // Convert URL to API Gateway V2 event
     try {
-      eventData = urlToApiGatewayV2Event(options.fetch);
+      eventData = urlToApiGatewayV2Event(options.fetch, {
+        cfOrp: cfOrpOptions,
+      });
       if (options.verbose) {
         console.log(chalk.blue(`Fetching URL: ${options.fetch}`));
       }
@@ -195,6 +224,9 @@ import { dirname } from 'path';
         verbose: options.verbose || options.debug,
         contextData,
         streaming: options.streaming,
+        httpToApiGatewayV2Options: {
+          cfOrp: cfOrpOptions,
+        },
       });
       // Watch mode runs indefinitely, so we return here
       return;

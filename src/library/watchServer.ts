@@ -1,5 +1,9 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { httpToApiGatewayV2, readBody } from './httpToApiGatewayV2.ts';
+import {
+  httpToApiGatewayV2,
+  readBody,
+  type HttpToApiGatewayV2Options,
+} from './httpToApiGatewayV2.ts';
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
@@ -17,6 +21,7 @@ export interface WatchServerOptions {
   verbose?: boolean;
   contextData?: Context;
   streaming?: boolean;
+  httpToApiGatewayV2Options?: HttpToApiGatewayV2Options;
 }
 
 /**
@@ -24,7 +29,13 @@ export interface WatchServerOptions {
  * and forwards them to the Lambda handler
  */
 export function startWatchServer(options: WatchServerOptions): void {
-  const { port, handler, verbose = false, contextData } = options;
+  const {
+    port,
+    handler,
+    verbose = false,
+    contextData,
+    httpToApiGatewayV2Options,
+  } = options;
 
   const server = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
@@ -47,7 +58,11 @@ export function startWatchServer(options: WatchServerOptions): void {
         const rawBody = await readBody(req);
 
         // Convert to API Gateway V2 event
-        const event = await httpToApiGatewayV2(req, rawBody);
+        const event = await httpToApiGatewayV2(
+          req,
+          rawBody,
+          httpToApiGatewayV2Options
+        );
 
         if (verbose) {
           console.log(chalk.gray(`  Event: ${JSON.stringify(event, null, 2)}`));

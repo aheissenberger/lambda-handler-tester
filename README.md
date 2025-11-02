@@ -32,6 +32,8 @@ Options:
   -d, --debug           enables verbose logging (default: false)
   -w, --watch <port>    start HTTP server on port and watch for requests
   --fetch <url>         fetch URL and convert to API Gateway V2 GET event
+  --cf-orp <name>       simulate CloudFront Origin Request Policy (supported: AllViewerExceptHost)
+  --api-gateway-v2      add API Gateway V2 host header (use with --cf-orp) (default: false)
   -h, --help            display help for command
 
 Examples:
@@ -44,6 +46,9 @@ Examples:
 
   $ pnpm dlx lambda-handler-tester --fetch "https://example.com/api/users?id=123"
   # Converts the URL to an API Gateway V2 GET event and passes it to your handler
+
+  $ pnpm dlx lambda-handler-tester --fetch "https://example.com" --cf-orp AllViewerExceptHost --api-gateway-v2
+  # Simulates CloudFront Origin Request Policy with API Gateway V2 host header
 ```
 
 ### Framework detection
@@ -123,6 +128,128 @@ The generated event includes:
 - `x-forwarded-port`: Port number
 
 See `examples/fetch_handler.mjs` for an example handler that processes fetch events.
+
+#### CloudFront Origin Request Policy Simulation
+
+The `--cf-orp <name>` option simulates CloudFront Origin Request Policies by modifying request headers before they reach your Lambda handler. This is useful for testing how your handler behaves when deployed behind CloudFront.
+
+**Supported Policies:**
+
+- `AllViewerExceptHost`: Forwards all viewer headers except Host, Origin, and Referer
+
+**Features:**
+
+- **Removes headers**: `host`, `origin`, `referer` (per policy)
+- **Adds CloudFront headers**:
+  - `via`: CloudFront edge server identifier (e.g., `2.0 abc123def456.cloudfront.net (CloudFront)`)
+  - `x-amz-cf-id`: CloudFront request ID (88-character base64 string)
+  - `x-amzn-trace-id`: AWS X-Ray trace ID
+- **Adds CloudFront viewer headers** (device type, geo-location, protocol info):
+  - `cloudfront-forwarded-proto`: Request protocol (http/https in watch mode; https in fetch mode)
+  - `cloudfront-is-*-viewer`: Device type flags (desktop, mobile, tablet, etc.)
+  - `cloudfront-viewer-address`: Client IP and random port (uses actual client IP from request)
+  - `cloudfront-viewer-asn`: Autonomous System Number [global network owner identifyer](https://www.arin.net/resources/guide/asn/)
+  - `cloudfront-viewer-city`, `cloudfront-viewer-country`, etc.: Geographic information
+  - `cloudfront-viewer-latitude`, `cloudfront-viewer-longitude`: GPS coordinates
+  - `cloudfront-viewer-http-version`: HTTP version
+  - `cloudfront-viewer-tls`: TLS connection details
+- **Overrides X-Forwarded headers**:
+  - `x-forwarded-for`: Client IP with CloudFront edge IP (uses actual client IP from request)
+  - `x-forwarded-port`: 80/443 in watch mode (mirrors protocol), 443 in fetch mode
+  - `x-forwarded-proto`: http/https in watch mode (mirrors incoming), https in fetch mode
+- **Optional API Gateway V2 host**: Use with `--api-gateway-v2` flag to add API Gateway host header
+- Works with both `--fetch` and `--watch` modes
+
+**Usage:**
+
+```bash
+# With fetch mode - simulate CloudFront ORP
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHost
+
+# With fetch mode - add API Gateway V2 host header
+$ pnpm dlx lambda-handler-tester --fetch "https://example.com/api" --cf-orp AllViewerExceptHost --api-gateway-v2
+
+# With watch mode
+$ pnpm dlx lambda-handler-tester --watch 3000 --cf-orp AllViewerExceptHost --api-gateway-v2
+
+# Test with curl (headers will be transformed)
+$ curl -H "Host: original.com" -H "Origin: https://example.com" http://localhost:3000/
+```
+
+**Header Transformations:**
+
+**Before** (Original Request):
+
+```json
+{
+  "headers": {
+    "host": "example.com",
+    "origin": "https://example.com",
+    "referer": "https://example.com/page",
+    "user-agent": "Mozilla/5.0"
+  }
+}
+```
+
+**After** (With `--cf-orp AllViewerExceptHost`):
+
+```json
+{
+  "headers": {
+    "user-agent": "Mozilla/5.0",
+    "accept": "*/*",
+    "via": "2.0 c5724b0f344b863f.cloudfront.net (CloudFront)",
+    "x-amz-cf-id": "5a_4fJMlUgshVedY7hw_a95Fjrcvo_ZUTyAYXm1MqIPHu2ey__pzSO8Z6vfc8_DdxnmSecb4tBs==",
+    "cloudfront-forwarded-proto": "http",
+    "cloudfront-is-android-viewer": "false",
+    "cloudfront-is-desktop-viewer": "true",
+    "cloudfront-is-ios-viewer": "false",
+    "cloudfront-is-mobile-viewer": "false",
+    "cloudfront-is-smarttv-viewer": "false",
+    "cloudfront-is-tablet-viewer": "false",
+    "cloudfront-viewer-address": "::1:15104",
+    "cloudfront-viewer-asn": "3209",
+    "cloudfront-viewer-city": "Berlin",
+    "cloudfront-viewer-country": "DE",
+    "cloudfront-viewer-country-name": "Germany",
+    "cloudfront-viewer-country-region": "16",
+    "cloudfront-viewer-country-region-name": "Berlin",
+    "cloudfront-viewer-http-version": "2.0",
+    "cloudfront-viewer-latitude": "52.52000",
+    "cloudfront-viewer-longitude": "13.40495",
+    "cloudfront-viewer-postal-code": "10115",
+    "cloudfront-viewer-time-zone": "Europe/Berlin",
+    "cloudfront-viewer-tls": "TLSv1.3:TLS_AES_128_GCM_SHA256:sessionResumed",
+    "x-amzn-trace-id": "Root=1-69073438-7b4d8432348ee55c06a8dbb0",
+    "x-forwarded-for": "::1, 130.176.219.142",
+    "x-forwarded-port": "80",
+    "x-forwarded-proto": "http"
+  }
+}
+```
+
+> **Note**: The IP address in `cloudfront-viewer-address` and `x-forwarded-for` is dynamically set based on the actual client IP (from `X-Forwarded-For` header or socket remote address). The port in `cloudfront-viewer-address` is randomly generated for each request.
+>
+> In watch mode, `x-forwarded-proto` and `cloudfront-forwarded-proto` reflect the incoming request's protocol (typically `http` for local servers), and `x-forwarded-port` mirrors it (80 for http, 443 for https). In fetch mode, they default to `https` and port `443`.
+
+**After** (With `--cf-orp AllViewerExceptHost --api-gateway-v2`):
+
+```json
+{
+  "headers": {
+    "host": "lj6qvkw6cf.execute-api.eu-west-1.amazonaws.com",
+    "user-agent": "Mozilla/5.0",
+    "via": "2.0 abc123def456.cloudfront.net (CloudFront)",
+    "x-amz-cf-id": "PXYbxeBvE3cEsOYBSlF_S4Gcd..."
+  }
+}
+```
+
+See `examples/cloudfront_orp_handler.mjs` for an example handler that demonstrates CloudFront ORP header handling.
+
+**Real-World Use Case:**
+
+This feature is particularly useful when your Lambda@Edge or Lambda function is deployed behind CloudFront with an Origin Request Policy. It allows you to test locally with the same header transformations that CloudFront applies in production, ensuring your handler works correctly with the modified headers.
 
 #### Watch Server Mode
 
