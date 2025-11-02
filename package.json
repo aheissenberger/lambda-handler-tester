@@ -12,6 +12,7 @@
     "lambda-handler-tester": "./bin/index.js"
   },
   "scripts": {
+    "preinstall": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent||'')) { console.error('\\nError: This repository uses pnpm. Please install pnpm and run `pnpm install`.\\n'); process.exit(1) }\"",
     "start": "NODE_NO_WARNINGS=1 node --experimental-strip-types  src/cli.ts $@",
     "start:dist": "node ./dist/cli.js",
     "build": "tsdown",
@@ -21,7 +22,7 @@
     "test:watch": "vitest",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "pnpm test && pnpm run build"
   },
   "tsdown": {
     "format": [
@@ -45,7 +46,8 @@
     "url": "https://github.com/aheissenberger"
   },
   "engines": {
-    "node": ">=20.0"
+    "node": ">=20.0",
+    "pnpm": ">=10"
   },
   "keywords": [
     "aws",
@@ -132,5 +134,6 @@
       "@semantic-release/npm",
       "@semantic-release/github"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.20.0"
 }
