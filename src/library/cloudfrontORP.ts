@@ -51,8 +51,6 @@ function applyAllViewerExceptHostHeader(
 
   // Remove headers per AllViewerExceptHostHeader policy
   delete headers.host;
-  delete headers.origin;
-  delete headers.referer;
 
   // Add CloudFront headers
   headers.via =

@@ -36,14 +36,12 @@ describe('CloudFront Origin Request Policy', () => {
   };
 
   describe('AllViewerExceptHostHeader policy', () => {
-    it('should remove host, origin, and referer headers', () => {
+    it('should remove host headers', () => {
       const result = applyCloudFrontORP(baseEvent, {
         policy: 'AllViewerExceptHostHeader',
       });
 
       expect(result.headers.host).toBeUndefined();
-      expect(result.headers.origin).toBeUndefined();
-      expect(result.headers.referer).toBeUndefined();
     });
 
     it('should add via header with CloudFront format', () => {
