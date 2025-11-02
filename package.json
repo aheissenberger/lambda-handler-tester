@@ -1,6 +1,6 @@
 {
   "name": "lambda-handler-tester",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "A command line tool to test AWS Lambda handler local",
   "type": "module",
   "files": [
@@ -73,16 +73,17 @@
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
     "@types/aws-lambda": "^8.10.157",
     "@types/node": "^24.9.2",
-    "conventional-changelog-conventionalcommits": "^8.0.0",
+    "@vitest/coverage-v8": "^4.0.6",
+    "bump": "^0.2.5",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
     "execa": "^9.6.0",
     "husky": "^9.1.7",
     "np": "^10.2.0",
     "prettier": "^3.6.2",
-    "semantic-release": "^24.2.9",
+    "semantic-release": "^25.0.1",
     "streaming": "link:@hattip/adapter-aws-lambda/streaming",
     "tsdown": "^0.15.12",
-    "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "vitest": "^4.0.6"
   },
   "config": {
     "commitizen": {
