@@ -44,13 +44,25 @@ export type CliConfig = {
 };
 export async function getFrameworkConfig(
   framework: framework,
-  handlerPath?: string,
-  ports: {
-    fs: typeof fs;
-    path: typeof path;
-    import: (modulePath: string) => Promise<any>;
-  } = { fs, path, import: modulePath => import(modulePath) }
+  options: {
+    handlerPath?: string;
+    log?: boolean;
+    ports?: {
+      fs: typeof fs;
+      path: typeof path;
+      import: (modulePath: string) => Promise<any>;
+    };
+  } = {}
 ): Promise<CliConfig> {
+  const {
+    handlerPath,
+    log = true,
+    ports = {
+      fs,
+      path,
+      import: async (modulePath: string) => await import(modulePath),
+    },
+  } = options || {};
   switch (framework) {
     case 'waku':
       return { handler: 'dist/serve-aws-lambda.js' };
@@ -75,9 +87,16 @@ export async function getFrameworkConfig(
       };
       try {
         const configPath = join(configDir, 'adapter.config.mjs');
+        log &&
+          console.log('Reading React Server adapter config from:', configPath);
         if (ports.fs.existsSync(configPath)) {
           const adapterConfig =
             (await ports.import(ports.path.resolve(configPath)))?.default ?? {};
+          log &&
+            console.log(
+              'Reactive Server adapter config:',
+              JSON.stringify(adapterConfig, null, 2)
+            );
           if (adapterConfig && adapterConfig.streaming === true) {
             cliOptions.apiGatewayV2 = false;
             cliOptions.streaming = true;

@@ -4,14 +4,20 @@ import {
   getFrameworkConfig,
 } from '../../library/framework.ts';
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 import { main } from '../../cli.ts';
 
 const rootDir = 'src/__tests__/frameworks/react-server';
 describe('React Server Framework Tests', () => {
+  beforeAll(() => {
+    process.chdir(rootDir);
+  });
+
+  afterAll(() => {
+    process.chdir('../../../..');
+  });
   describe('Unit Tests', () => {
     it('detect framework', () => {
-      const packageJsonPath = join(rootDir, 'package.json');
+      const packageJsonPath = 'package.json';
       const packageJson = existsSync(packageJsonPath)
         ? JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
         : { dependencies: {} };
@@ -24,6 +30,7 @@ describe('React Server Framework Tests', () => {
         '.aws-lambda/output/functions/index.func/index.mjs'
       );
       expect(config.apiGatewayV2).toBe(true);
+      expect(config.streaming).toBe(false);
       expect(config.cfOrp).toBe('AllViewerExceptHostHeader');
     });
     it('get framework config with streaming', async () => {
@@ -51,7 +58,7 @@ describe('React Server Framework Tests', () => {
         }),
       };
 
-      const config = await getFrameworkConfig('react-server', undefined, ports);
+      const config = await getFrameworkConfig('react-server', { ports });
       expect(config.handler).toBe(
         '.aws-lambda/output/functions/index.func/index.mjs'
       );
@@ -61,13 +68,6 @@ describe('React Server Framework Tests', () => {
     });
   });
   describe('cli config merge', () => {
-    beforeAll(() => {
-      process.chdir(rootDir);
-    });
-
-    afterAll(() => {
-      process.chdir('../../../..');
-    });
     it('should detect react-server framework', async () => {
       const cmdLineArgs = [...process.argv, '--cfg-print'];
       const originalLog = console.log;
@@ -80,10 +80,21 @@ describe('React Server Framework Tests', () => {
       }
       console.log = originalLog;
       // Now you can assert on logs array
-      const logsStr = logs.join('\n');
+      const logsStr = logs.join(' ');
       expect(logsStr).toContain('Detected framework: react-server');
-      expect(logsStr).toContain('Configuration:');
-      const config = logsStr.substring(logsStr.indexOf('{'));
+      expect(logsStr).toContain('Reactive Server adapter config:');
+      const adapterConfigMatch = logsStr.match(
+        /Reactive Server adapter config: (\{[^}]*\})/s
+      );
+      const adapterConfig = adapterConfigMatch ? adapterConfigMatch[1] : '';
+      expect(JSON.parse(adapterConfig)).toEqual({
+        streaming: false,
+        serverlessFunctions: true,
+        routingMode: 'pathBehaviors',
+      });
+      const config = logsStr.substring(
+        logsStr.indexOf('Configuration: {') + 15
+      );
 
       const parsedConfig = JSON.parse(config);
       expect(parsedConfig.handler).toBe(

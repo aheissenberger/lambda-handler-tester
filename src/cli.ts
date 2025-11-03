@@ -50,7 +50,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
     .version(version)
     .name('lambda-handler-tester')
     .option('--handler [PATH]', 'path to request handler')
-    .option('-s, --streaming', 'streaming handler', false)
+    .option('-s, --streaming', 'streaming handler')
     .option('-e, --event [PATH]', 'path to an json file with a valid event')
     .option('-c, --context [PATH]', 'path to an json file with a valid context')
     .option('-p, --path [PATH]', 'path to request', '/')
@@ -88,8 +88,11 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
 
   const framework = detectFramework(packageJson);
   const cliOptionsFramework = framework
-    ? await getFrameworkConfig(framework, program.opts().handler)
-    : {};
+    ? await getFrameworkConfig(framework, {
+        handlerPath: program.opts().handler,
+        log: program.opts().cfgPrint,
+      })
+    : undefined;
 
   const options = {
     ...cliOptionsFramework,
