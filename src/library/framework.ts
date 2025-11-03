@@ -76,9 +76,8 @@ export async function getFrameworkConfig(
       try {
         const configPath = join(configDir, 'adapter.config.mjs');
         if (ports.fs.existsSync(configPath)) {
-          const adapterConfig = await ports.import(
-            ports.path.resolve(configPath)
-          );
+          const adapterConfig =
+            (await ports.import(ports.path.resolve(configPath)))?.default ?? {};
           if (adapterConfig && adapterConfig.streaming === true) {
             cliOptions.apiGatewayV2 = false;
             cliOptions.streaming = true;

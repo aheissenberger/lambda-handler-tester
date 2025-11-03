@@ -45,7 +45,9 @@ describe('React Server Framework Tests', () => {
           delimiter: ':',
         },
         import: vi.fn().mockResolvedValue({
-          streaming: true,
+          default: {
+            streaming: true,
+          },
         }),
       };
 
