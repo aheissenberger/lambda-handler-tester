@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   detectFramework,
   getFrameworkConfig,
@@ -18,12 +18,43 @@ describe('React Server Framework Tests', () => {
       const framework = detectFramework(packageJson);
       expect(framework).toBe('react-server');
     });
-    it('get framework config', async () => {
+    it('get framework real config', async () => {
       const config = await getFrameworkConfig('react-server');
       expect(config.handler).toBe(
         '.aws-lambda/output/functions/index.func/index.mjs'
       );
       expect(config.apiGatewayV2).toBe(true);
+      expect(config.cfOrp).toBe('AllViewerExceptHostHeader');
+    });
+    it('get framework config with streaming', async () => {
+      const ports = {
+        fs: {
+          existsSync: vi.fn().mockReturnValue(true),
+          readFileSync: vi.fn(),
+        },
+        path: {
+          join: vi.fn(),
+          resolve: vi.fn(),
+          dirname: vi.fn(),
+          basename: vi.fn(),
+          extname: vi.fn(),
+          relative: vi.fn(),
+          normalize: vi.fn(),
+          isAbsolute: vi.fn(),
+          sep: '/',
+          delimiter: ':',
+        },
+        import: vi.fn().mockResolvedValue({
+          streaming: true,
+        }),
+      };
+
+      const config = await getFrameworkConfig('react-server', undefined, ports);
+      expect(config.handler).toBe(
+        '.aws-lambda/output/functions/index.func/index.mjs'
+      );
+      expect(config.streaming).toBe(true);
+      expect(config.apiGatewayV2).toBe(false);
       expect(config.cfOrp).toBe('AllViewerExceptHostHeader');
     });
   });

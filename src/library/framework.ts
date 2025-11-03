@@ -44,7 +44,12 @@ export type CliConfig = {
 };
 export async function getFrameworkConfig(
   framework: framework,
-  handlerPath?: string
+  handlerPath?: string,
+  ports: {
+    fs: typeof fs;
+    path: typeof path;
+    import: (modulePath: string) => Promise<any>;
+  } = { fs, path, import: modulePath => import(modulePath) }
 ): Promise<CliConfig> {
   switch (framework) {
     case 'waku':
@@ -54,7 +59,7 @@ export async function getFrameworkConfig(
     case 'react-server':
       let configDir = '.aws-lambda/output/functions/index.func/';
       if (typeof handlerPath === 'string' && handlerPath.length > 0) {
-        if (fs.existsSync(handlerPath)) {
+        if (ports.fs.existsSync(handlerPath)) {
           configDir = path.dirname(handlerPath);
         } else {
           console.warn('Warning: Provided handler path does not exist!');
@@ -70,8 +75,10 @@ export async function getFrameworkConfig(
       };
       try {
         const configPath = join(configDir, 'adapter.config.mjs');
-        if (fs.existsSync(configPath)) {
-          const adapterConfig = await import(path.resolve(configPath));
+        if (ports.fs.existsSync(configPath)) {
+          const adapterConfig = await ports.import(
+            ports.path.resolve(configPath)
+          );
           if (adapterConfig && adapterConfig.streaming === true) {
             cliOptions.apiGatewayV2 = false;
             cliOptions.streaming = true;
