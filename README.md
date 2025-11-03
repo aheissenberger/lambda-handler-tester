@@ -25,6 +25,7 @@ Options:
   --decode-base64       decode base64 body (default: false)
   --header              only show header without body (default: false)
   -v, --verbose         enables verbose logging (default: false)
+  --cfg-print           print framework configuration and exit (default: false)
   --response-time       measure the response time (default: false)
   --repeat <number>     repeat request [n] times (default: 1)
   --profile-cpu         profile JavaScript CPU usage to "aws-lambda-handler.cpuprofile" (default: false)
@@ -41,6 +42,14 @@ Examples:
   $ pnpm dlx lambda-handler-tester
   0.0.xx-development
 
+  $ pnpm dlx lambda-handler-tester --cfg-print
+  Detected framework: react-server
+  Configuration: {
+    "handler": ".aws-lambda/output/functions/index.func/index.mjs",
+    "apiGatewayV2": true,
+    "cfOrp": "AllViewerExceptHostHeader"
+  }
+
   $ pnpm dlx lambda-handler-tester --watch 3000
   🚀 Lambda handler server listening on http://localhost:3000
 
@@ -53,13 +62,53 @@ Examples:
 
 ### Framework detection
 
-These frameworks are detected:
+These frameworks are detected and automatically configured:
 
 - [@lazarv/react-server](https://react-server.dev)
 - [Waku](https://waku.gg)
 - [Vike](https://vike.dev)
 
-If your network is not detected you will need to provide the path to the file with the AWS Lambda Handler:
+When a supported framework is detected, the tool automatically applies framework-specific configuration presets to provide the best testing experience out-of-the-box.
+
+#### Automatic Framework Configuration
+
+**React Server**:
+
+- **Handler**: `.aws-lambda/output/functions/index.func/index.mjs` (automatically detected)
+- **CloudFront ORP**: `AllViewerExceptHostHeader` (simulates production CloudFront environment)
+- **API Gateway V2**: Enabled by default (disabled if streaming is detected in `adapter.config.mjs`)
+- **Streaming Support**: Automatically detected from `adapter.config.mjs` configuration
+
+**Waku**:
+
+- **Handler**: `dist/serve-aws-lambda.js` (standard Waku AWS Lambda build output)
+
+**Vike**:
+
+- **Handler**: `entry_aws_lambda.ts` (standard Vike AWS Lambda entry point)
+
+#### Configuration Override
+
+Framework presets can be overridden by explicitly providing command-line options:
+
+```bash
+# Override react-server defaults
+$ pnpm dlx lambda-handler-tester --handler ./custom-handler.mjs --api-gateway-v2 false
+
+# View current configuration (framework detection + your overrides)
+$ pnpm dlx lambda-handler-tester --cfg-print
+
+# Example output:
+# Detected framework: react-server
+# Configuration: {
+#   "handler": ".aws-lambda/output/functions/index.func/index.mjs",
+#   "apiGatewayV2": true,
+#   "cfOrp": "AllViewerExceptHostHeader",
+#   "streaming": false
+# }
+```
+
+If your framework is not detected you will need to provide the path to the file with the AWS Lambda Handler:
 `$ pnpm dlx lambda-handler-tester --handler ./aws-lambda-output/handler.mjs`
 
 ### Options

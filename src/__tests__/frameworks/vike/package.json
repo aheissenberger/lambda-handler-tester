@@ -1,0 +1,8 @@
+{
+    "name": "vike-framework-test",
+    "version": "0.0.0",
+    "private": true,
+    "dependencies": {
+        "vike": "workspace:^"
+    }
+}

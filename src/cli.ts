@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'node:fs';
 import eventHttpApi2 from './aws_events/httpapi2.ts';
-import { detectFramework, getDefaultHandlerPath } from './library/framework.ts';
+import { detectFramework, getFrameworkConfig } from './library/framework.ts';
 import { resolve } from 'node:path';
 import { awslambdaSimulator } from './library/awslambda-simulator.ts';
 import chalk from 'chalk';
@@ -13,7 +13,7 @@ import { urlToApiGatewayV2Event } from './library/urlToApiGatewayV2.ts';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-export async function main() {
+export async function main(cmdLineArgs: readonly string[] | undefined) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const toolPackageJsonPath = `${__dirname}/../package.json`;
@@ -57,6 +57,7 @@ export async function main() {
     .option('--decode-base64', 'decode base64 body', false)
     .option('--header', 'only show header without body', false)
     .option('-v, --verbose', 'enables verbose logging', false)
+    .option('--cfg-print', 'print config', false)
     .option('--response-time', 'measure the response time', false)
     .option(
       '--profile-cpu',
@@ -81,12 +82,25 @@ export async function main() {
     )
     .option(
       '--api-gateway-v2',
-      'add API Gateway V2 host header (use with --cf-orp)',
-      false
+      'add API Gateway V2 host header (use with --cf-orp)'
     )
-    .parse(process.argv);
+    .parse(cmdLineArgs);
 
-  const options = program.opts();
+  const framework = detectFramework(packageJson);
+  const cliOptionsFramework = framework
+    ? await getFrameworkConfig(framework, program.opts().handler)
+    : {};
+
+  const options = {
+    ...cliOptionsFramework,
+    ...program.opts(),
+  };
+
+  if (options.cfgPrint === true) {
+    console.log('Detected framework:', framework ?? 'none');
+    console.log('Configuration:', JSON.stringify(options, null, 2));
+    process.exit(0);
+  }
 
   // Build CloudFront Origin Request Policy options
   let cfOrpOptions = undefined;
@@ -110,23 +124,22 @@ export async function main() {
 
   let eventData = null;
   let contextData = null;
-  let framework;
+
   let handlerPath = options.handler;
   let awsLambdaSimulator;
 
-  if (handlerPath) {
-    if (!existsSync(handlerPath)) {
-      console.error(`Error: handler file not found: ${handlerPath}`);
-      process.exit(1);
-    }
-  } else {
-    framework = detectFramework(packageJson);
-    if (framework === undefined) {
-      console.error('Error: unknown framework! Please provide a handler path');
-      process.exit(1);
-    }
-    handlerPath = getDefaultHandlerPath(framework);
+  const handlerExists = existsSync(handlerPath);
+  if (framework === undefined && !handlerExists) {
+    console.error(
+      'Error: unknown framework! Please provide a valid handler path'
+    );
+    process.exit(1);
   }
+  if (!handlerExists) {
+    console.error(`Error: handler file not found: ${handlerPath}`);
+    process.exit(1);
+  }
+
   const queryPath = options.path;
 
   if (options.event) {
@@ -302,5 +315,5 @@ export async function main() {
 
 // Only run main() when executed directly (not when imported for testing)
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  main(process.argv);
 }

@@ -1,0 +1,8 @@
+{
+    "name": "waku-framework-test",
+    "version": "0.0.0",
+    "private": true,
+    "dependencies": {
+        "waku": "workspace:^"
+    }
+}

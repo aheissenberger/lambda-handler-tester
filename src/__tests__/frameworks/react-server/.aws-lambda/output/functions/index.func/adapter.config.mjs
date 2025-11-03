@@ -1,0 +1,1 @@
+export default {"streaming":false,"serverlessFunctions":true,"routingMode":"pathBehaviors"};
