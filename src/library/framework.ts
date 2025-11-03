@@ -66,6 +66,7 @@ export async function getFrameworkConfig(
           handlerPath ?? '.aws-lambda/output/functions/index.func/index.mjs',
         apiGatewayV2: true,
         cfOrp: 'AllViewerExceptHostHeader',
+        streaming: false,
       };
       try {
         const configPath = join(configDir, 'adapter.config.mjs');
@@ -73,6 +74,7 @@ export async function getFrameworkConfig(
           const adapterConfig = await import(path.resolve(configPath));
           if (adapterConfig && adapterConfig.streaming === true) {
             cliOptions.apiGatewayV2 = false;
+            cliOptions.streaming = true;
           }
         }
       } catch (e) {
