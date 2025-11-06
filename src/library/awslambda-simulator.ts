@@ -1,9 +1,8 @@
-import type { APIGatewayProxyEventV2, Callback, Context } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 import { Writable } from 'node:stream';
-import { ResponseStream } from './ResponseStream.ts';
-export const awslambdaSimulator = (silent: boolean) => {
-  let responseStream = new ResponseStream({ silent });
+import { ResponseStream } from './ResponseStream';
 
+export const awslambdaSimulator = (silent: boolean) => {
   return {
     awslambda: {
       streamifyResponse:
@@ -15,19 +14,40 @@ export const awslambdaSimulator = (silent: boolean) => {
           ) => Promise<void>
         ) =>
         async (event: APIGatewayProxyEventV2, context: Context) => {
+          // Create a fresh ResponseStream per invocation
+          const responseStream = new ResponseStream({ silent });
+
+          // Wait for writes to flush
+          const finished = new Promise<void>((resolve, reject) => {
+            responseStream.once('finish', resolve);
+            responseStream.once('error', reject);
+          });
+
           await handler(event, responseStream, context);
+          await finished;
+
           return responseStream;
         },
       HttpResponseStream: {
         from(responseStream: Writable, metadata: any) {
-          // Store metadata in the ResponseStream if it's our custom implementation
+          // Attach metadata to our custom stream instance
           if (responseStream instanceof ResponseStream) {
-            if (metadata?.headers?.['Content-Type']) {
-              responseStream.setContentType(metadata.headers['Content-Type']);
+            const headers = (metadata?.headers ?? {}) as Record<string, any>;
+
+            // Case-insensitive content-type detection
+            const contentTypeKey = Object.keys(headers).find(
+              k => k.toLowerCase() === 'content-type'
+            );
+            if (contentTypeKey && headers[contentTypeKey]) {
+              responseStream.setContentType(headers[contentTypeKey]);
             }
-            // Store status code and other headers for potential future use
-            (responseStream as any)._statusCode = metadata?.statusCode;
-            (responseStream as any)._headers = metadata?.headers;
+
+            // Store status code and headers for later propagation
+            (responseStream as any)._statusCode =
+              metadata?.statusCode ??
+              (responseStream as any)._statusCode ??
+              200;
+            (responseStream as any)._headers = headers;
           }
           return responseStream;
         },
@@ -42,12 +62,17 @@ export const awslambdaSimulator = (silent: boolean) => {
         ) => any
       ) =>
       async (event: APIGatewayProxyEventV2, context: Context) => {
-        const responseStreamFinished = new Promise<void>((resolve, reject) => {
-          responseStream.on('close', resolve);
-          responseStream.on('error', reject);
+        // Create a fresh ResponseStream per invocation
+        const responseStream = new ResponseStream({ silent });
+
+        const finished = new Promise<void>((resolve, reject) => {
+          responseStream.once('finish', resolve);
+          responseStream.once('error', reject);
         });
+
         await handler(event, responseStream, context);
-        await responseStreamFinished;
+        await finished;
+
         return responseStream.getBufferedData().toString('utf-8');
       },
   };

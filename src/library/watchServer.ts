@@ -93,8 +93,12 @@ export function startWatchServer(options: WatchServerOptions): void {
             }
           }
 
-          // Set Content-Type if not already set
-          if (!headers['Content-Type'] && contentType) {
+          // Set Content-Type from ResponseStream if not already set in headers
+          // Check case-insensitively for Content-Type header
+          const hasContentType = Object.keys(headers).some(
+            key => key.toLowerCase() === 'content-type'
+          );
+          if (!hasContentType && contentType) {
             res.setHeader('Content-Type', contentType);
           }
 
@@ -172,6 +176,9 @@ export function startWatchServer(options: WatchServerOptions): void {
   );
 
   server.listen(port, () => {
+    (globalThis as any).__lambdaWatchServer = server;
+    (globalThis as any).__lambdaWatchServerPort = port;
+    (globalThis as any).__lambdaWatchServerReady = true;
     console.log(
       chalk.green.bold(
         `\n🚀 Lambda handler server listening on http://localhost:${port}`

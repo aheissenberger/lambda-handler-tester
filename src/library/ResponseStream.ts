@@ -3,7 +3,7 @@ import { Stream } from 'stream';
 export class ResponseStream extends Stream.Writable {
   private response: Buffer;
   private silent: boolean;
-  _contentType?: string;
+  _contentType: string = 'text/html; charset=utf-8';
   _isBase64Encoded?: boolean;
 
   constructor({ silent } = { silent: false }) {

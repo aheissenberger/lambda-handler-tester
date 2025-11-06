@@ -9,9 +9,33 @@ import { Performance } from './library/performanceObserver.ts';
 import prettyMs from 'pretty-ms';
 import { startWatchServer } from './library/watchServer.ts';
 import { urlToApiGatewayV2Event } from './library/urlToApiGatewayV2.ts';
+import type { Context } from 'aws-lambda';
 
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { randomBytes } from 'crypto';
+
+// Helper function to create a default Lambda context
+function createDefaultContext(): Context {
+  const requestId = randomBytes(16).toString('hex');
+  return {
+    callbackWaitsForEmptyEventLoop: true,
+    functionName: 'lambda-handler-tester',
+    functionVersion: '$LATEST',
+    invokedFunctionArn:
+      'arn:aws:lambda:us-east-1:123456789012:function:lambda-handler-tester',
+    memoryLimitInMB: '128',
+    awsRequestId: requestId,
+    logGroupName: '/aws/lambda/lambda-handler-tester',
+    logStreamName: `2025/01/01/[$LATEST]${requestId}`,
+    identity: undefined,
+    clientContext: undefined,
+    getRemainingTimeInMillis: () => 30000,
+    done: () => {},
+    fail: () => {},
+    succeed: () => {},
+  };
+}
 
 export async function main(cmdLineArgs: readonly string[] | undefined) {
   const __filename = fileURLToPath(import.meta.url);
@@ -34,7 +58,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
     : { dependencies: {} };
 
   const program = new Command();
-  const error = chalk.bold.red;
+  const _error = chalk.bold.red;
   const warning = chalk.hex('#FFA500'); // Orange color
 
   function myParseInt(value: string) {
@@ -94,7 +118,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
       })
     : undefined;
 
-  const options = {
+  const options: any = {
     ...cliOptionsFramework,
     ...program.opts(),
   };
@@ -126,7 +150,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
   }
 
   let eventData = null;
-  let contextData = null;
+  let contextData: Context | null = null;
 
   let handlerPath = options.handler;
   let awsLambdaSimulator;
@@ -153,7 +177,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
     }
     try {
       eventData = JSON.parse(readFileSync(eventPath, { encoding: 'utf-8' }));
-    } catch (e) {
+    } catch {
       console.error(`Error: invalid JSON: ${eventPath}`);
       process.exit(1);
     }
@@ -188,7 +212,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
       contextData = JSON.parse(
         readFileSync(contextPath, { encoding: 'utf-8' })
       );
-    } catch (e) {
+    } catch {
       console.error(`Error: invalid JSON: ${contextPath}`);
       process.exit(1);
     }
@@ -207,7 +231,7 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
 
   if (options.streaming) {
     awsLambdaSimulator = awslambdaSimulator(
-      options.silent || options.responseTime
+      options.silent || options.responseTime || options.watch !== undefined
     );
     (globalThis as any).awslambda = awsLambdaSimulator.awslambda;
   }
@@ -236,11 +260,16 @@ export async function main(cmdLineArgs: readonly string[] | undefined) {
       console.log(
         chalk.blue(`Starting watch mode on port ${options.watch}...`)
       );
+      // For streaming in watch mode, use the raw handler to get ResponseStream
+      // For non-streaming, use the wrapped handler
+      const watchHandler = options.streaming ? handlerImported : handler;
+      // Ensure we have a valid context for watch mode
+      const watchContext = contextData || createDefaultContext();
       startWatchServer({
         port: options.watch,
-        handler,
+        handler: watchHandler,
         verbose: options.verbose || options.debug,
-        contextData,
+        contextData: watchContext,
         streaming: options.streaming,
         httpToApiGatewayV2Options: {
           cfOrp: cfOrpOptions,
