@@ -73,7 +73,7 @@
     "@ryansonshine/cz-conventional-changelog": "^3.3.4",
     "@types/aws-lambda": "^8.10.157",
     "@types/node": "^24.10.0",
-    "@vitest/coverage-v8": "^4.0.6",
+    "@vitest/coverage-v8": "^4.0.7",
     "bump": "^0.2.5",
     "conventional-changelog-conventionalcommits": "^9.1.0",
     "execa": "^9.6.0",
@@ -83,7 +83,7 @@
     "semantic-release": "^25.0.1",
     "streaming": "link:@hattip/adapter-aws-lambda/streaming",
     "tsdown": "^0.15.12",
-    "vitest": "^4.0.6"
+    "vitest": "^4.0.7"
   },
   "config": {
     "commitizen": {
