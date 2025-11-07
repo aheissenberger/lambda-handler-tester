@@ -48,6 +48,10 @@ export interface WatchServerOptions {
  */
 export function startWatchServer(options: WatchServerOptions): void {
   const { port } = options;
+  const verboseGlobal = !!options.verbose;
+  // Controller used to abort in-flight requests on shutdown without tracking sockets
+  const shutdownController = new AbortController();
+  let shuttingDown = false;
 
   const server = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
@@ -55,6 +59,15 @@ export function startWatchServer(options: WatchServerOptions): void {
       const method = req.method || 'GET';
       const url = req.url || '/';
       const verbose = options.verbose || false;
+
+      // If we're shutting down, make sure clients don't keep the connection alive
+      if (shuttingDown) {
+        try {
+          res.setHeader('Connection', 'close');
+          // @ts-ignore
+          res.shouldKeepAlive = false;
+        } catch {}
+      }
 
       if (verbose) {
         console.log(chalk.blue(`\n→ ${method} ${url}`));
@@ -82,7 +95,9 @@ export function startWatchServer(options: WatchServerOptions): void {
         }
 
         // Use provided context or create default
-        const contextData = options.contextData || createDefaultContext();
+  const contextData = options.contextData || createDefaultContext();
+  // Expose an abort signal to handlers so they can cancel work promptly
+  (contextData as any).abortSignal = shutdownController.signal;
 
         // If streaming mode, stream chunks to HTTP response as they arrive
         if (options.streaming) {
@@ -115,6 +130,26 @@ export function startWatchServer(options: WatchServerOptions): void {
           }
 
           const responseStream = result;
+
+          // Abort hook: close the stream/response promptly when shutting down
+          const onAbort = () => {
+            if (verboseGlobal) console.log(chalk.yellow('↯ Aborting in-flight streaming response'));
+            try {
+              // Best effort: end HTTP response
+              if (!headersSent) {
+                try {
+                  res.setHeader('Connection', 'close');
+                } catch {}
+              }
+              // Signal to writer to stop
+              responseStream.destroy(new Error('Server shutting down'));
+              if (!responseEnded) {
+                res.end();
+                responseEnded = true;
+              }
+            } catch {}
+          };
+          shutdownController.signal.addEventListener('abort', onAbort, { once: true });
 
           const sendHeadersOnce = () => {
             if (headersSent) return;
@@ -184,6 +219,7 @@ export function startWatchServer(options: WatchServerOptions): void {
               res.end();
               responseEnded = true;
             }
+            shutdownController.signal.removeEventListener('abort', onAbort);
           });
 
           responseStream.once('error', err => {
@@ -202,6 +238,7 @@ export function startWatchServer(options: WatchServerOptions): void {
               res.end(JSON.stringify({ error: 'Stream Error' }));
               responseEnded = true;
             }
+            shutdownController.signal.removeEventListener('abort', onAbort);
           });
         } else {
           // Non-streaming path
@@ -330,20 +367,33 @@ export function startWatchServer(options: WatchServerOptions): void {
     console.log(chalk.gray(`   Press Ctrl+C to stop\n`));
   });
 
-  // Graceful shutdown
-  process.on('SIGINT', () => {
-    console.log(chalk.yellow('\n\n⏹  Shutting down server...'));
-    server.close(() => {
-      console.log(chalk.gray('Server stopped'));
-      process.exit(0);
-    });
-  });
+  // Graceful shutdown via AbortController (no socket tracking)
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(chalk.yellow(`\n\n⏹  ${signal} received. Shutting down server...`));
 
-  process.on('SIGTERM', () => {
-    console.log(chalk.yellow('\n\n⏹  Shutting down server...'));
-    server.close(() => {
-      console.log(chalk.gray('Server stopped'));
+    // Abort in-flight requests, handlers can also observe context.abortSignal
+    shutdownController.abort(new Error('Server shutdown'));
+
+    // Stop accepting new connections
+    try {
+      // @ts-ignore (Node >=18)
+      server.closeIdleConnections?.();
+    } catch {}
+    try {
+      server.close(() => {
+        if (verboseGlobal) console.log(chalk.gray('HTTP server closed'));
+        process.exit(0);
+      });
+    } catch {
       process.exit(0);
-    });
-  });
+    }
+
+    // Failsafe: ensure exit even if callbacks don’t run
+    setTimeout(() => process.exit(0), 1000).unref();
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
