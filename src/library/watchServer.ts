@@ -95,9 +95,9 @@ export function startWatchServer(options: WatchServerOptions): void {
         }
 
         // Use provided context or create default
-  const contextData = options.contextData || createDefaultContext();
-  // Expose an abort signal to handlers so they can cancel work promptly
-  (contextData as any).abortSignal = shutdownController.signal;
+        const contextData = options.contextData || createDefaultContext();
+        // Expose an abort signal to handlers so they can cancel work promptly
+        (contextData as any).abortSignal = shutdownController.signal;
 
         // If streaming mode, stream chunks to HTTP response as they arrive
         if (options.streaming) {
@@ -131,9 +131,26 @@ export function startWatchServer(options: WatchServerOptions): void {
 
           const responseStream = result;
 
+          // If the handler set metadata before returning the stream, capture it now
+          const preStatus = (responseStream as any)._statusCode as
+            | number
+            | undefined;
+          const preHeaders = (responseStream as any)._headers as
+            | Record<string, any>
+            | undefined;
+          if (typeof preStatus === 'number') pendingStatus = preStatus;
+          if (preHeaders && typeof preHeaders === 'object') {
+            for (const [k, v] of Object.entries(preHeaders)) {
+              pendingHeaders[k] = v as any;
+            }
+          }
+
           // Abort hook: close the stream/response promptly when shutting down
           const onAbort = () => {
-            if (verboseGlobal) console.log(chalk.yellow('↯ Aborting in-flight streaming response'));
+            if (verboseGlobal)
+              console.log(
+                chalk.yellow('↯ Aborting in-flight streaming response')
+              );
             try {
               // Best effort: end HTTP response
               if (!headersSent) {
@@ -149,7 +166,9 @@ export function startWatchServer(options: WatchServerOptions): void {
               }
             } catch {}
           };
-          shutdownController.signal.addEventListener('abort', onAbort, { once: true });
+          shutdownController.signal.addEventListener('abort', onAbort, {
+            once: true,
+          });
 
           const sendHeadersOnce = () => {
             if (headersSent) return;
@@ -195,6 +214,29 @@ export function startWatchServer(options: WatchServerOptions): void {
               }
             }
           );
+
+          // If the handler wrote synchronously before we attached listeners,
+          // flush the buffered data now so nothing is lost.
+          const initial = responseStream.getBufferedData?.();
+          if (initial && initial.length > 0) {
+            if (!headersSent) sendHeadersOnce();
+            if (responseStream.getIsBase64Encoded()) {
+              res.write(Buffer.from(initial.toString(), 'base64'));
+            } else {
+              res.write(initial);
+            }
+          }
+
+          // If the stream already ended synchronously, finalize the response
+          if ((responseStream as any).writableEnded) {
+            if (!headersSent) sendHeadersOnce();
+            if (!responseEnded) {
+              res.end();
+              responseEnded = true;
+            }
+            shutdownController.signal.removeEventListener('abort', onAbort);
+            return;
+          }
 
           // Stream chunks to client as they're written
           responseStream.on('chunk', (buf: Buffer) => {
@@ -371,7 +413,9 @@ export function startWatchServer(options: WatchServerOptions): void {
   const shutdown = (signal: NodeJS.Signals) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(chalk.yellow(`\n\n⏹  ${signal} received. Shutting down server...`));
+    console.log(
+      chalk.yellow(`\n\n⏹  ${signal} received. Shutting down server...`)
+    );
 
     // Abort in-flight requests, handlers can also observe context.abortSignal
     shutdownController.abort(new Error('Server shutdown'));
