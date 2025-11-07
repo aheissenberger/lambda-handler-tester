@@ -1,26 +1,44 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import {
   httpToApiGatewayV2,
-  readBody,
   type HttpToApiGatewayV2Options,
 } from './httpToApiGatewayV2.ts';
-import type {
-  APIGatewayProxyEventV2,
-  APIGatewayProxyResultV2,
-  Context,
-} from 'aws-lambda';
-import chalk from 'chalk';
+import type { APIGatewayProxyResultV2, Context } from 'aws-lambda';
 import { ResponseStream } from './ResponseStream.ts';
+import chalk from 'chalk';
+import { randomBytes } from 'crypto';
+
+// Helper function to create a default Lambda context
+function createDefaultContext(): Context {
+  const requestId = randomBytes(16).toString('hex');
+  return {
+    callbackWaitsForEmptyEventLoop: true,
+    functionName: 'lambda-handler-tester',
+    functionVersion: '$LATEST',
+    invokedFunctionArn:
+      'arn:aws:lambda:us-east-1:123456789012:function:lambda-handler-tester',
+    memoryLimitInMB: '128',
+    awsRequestId: requestId,
+    logGroupName: '/aws/lambda/lambda-handler-tester',
+    logStreamName: `2025/01/01/[$LATEST]${requestId}`,
+    identity: undefined,
+    clientContext: undefined,
+    getRemainingTimeInMillis: () => 30000,
+    done: () => {},
+    fail: () => {},
+    succeed: () => {},
+  };
+}
 
 export interface WatchServerOptions {
   port: number;
   handler: (
-    event: APIGatewayProxyEventV2,
-    context?: Context
-  ) => Promise<APIGatewayProxyResultV2 | string | ResponseStream>;
+    ...args: any[]
+  ) => Promise<APIGatewayProxyResultV2 | string | ResponseStream | void>;
   verbose?: boolean;
   contextData?: Context;
   streaming?: boolean;
+  silent?: boolean;
   httpToApiGatewayV2Options?: HttpToApiGatewayV2Options;
 }
 
@@ -29,111 +47,228 @@ export interface WatchServerOptions {
  * and forwards them to the Lambda handler
  */
 export function startWatchServer(options: WatchServerOptions): void {
-  const {
-    port,
-    handler,
-    verbose = false,
-    contextData,
-    httpToApiGatewayV2Options,
-  } = options;
+  const { port } = options;
 
   const server = createServer(
     async (req: IncomingMessage, res: ServerResponse) => {
       const startTime = Date.now();
       const method = req.method || 'GET';
       const url = req.url || '/';
+      const verbose = options.verbose || false;
+
+      if (verbose) {
+        console.log(chalk.blue(`\n→ ${method} ${url}`));
+      } else {
+        console.log(`→ ${method} ${url}`);
+      }
 
       try {
-        // Log incoming request
-        if (verbose) {
-          console.log(chalk.cyan(`\n→ ${method} ${url}`));
-          console.log(
-            chalk.gray(`  Headers: ${JSON.stringify(req.headers, null, 2)}`)
-          );
-        } else {
-          console.log(chalk.cyan(`→ ${method} ${url}`));
+        // Collect request body
+        const bodyChunks: Buffer[] = [];
+        for await (const chunk of req) {
+          bodyChunks.push(chunk);
         }
+        const body = Buffer.concat(bodyChunks);
 
-        // Read the request body
-        const rawBody = await readBody(req);
-
-        // Convert to API Gateway V2 event
-        const event = await httpToApiGatewayV2(
+        // Convert HTTP request to API Gateway V2 event
+        const eventData = await httpToApiGatewayV2(
           req,
-          rawBody,
-          httpToApiGatewayV2Options
+          body,
+          options.httpToApiGatewayV2Options
         );
 
         if (verbose) {
-          console.log(chalk.gray(`  Event: ${JSON.stringify(event, null, 2)}`));
+          console.log(chalk.gray('Event:'), JSON.stringify(eventData, null, 2));
         }
 
-        // Call the Lambda handler
-        const result = await handler(event, contextData);
+        // Use provided context or create default
+        const contextData = options.contextData || createDefaultContext();
 
-        // Handle the response
-        if (typeof result === 'string') {
-          // Simple string response
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          res.end(result);
-        } else if (result instanceof ResponseStream) {
-          // Streaming response
-          const bufferedData = result.getBufferedData();
-          const contentType = result._contentType || 'text/html';
-          const isBase64Encoded = result._isBase64Encoded || false;
-          const statusCode = (result as any)._statusCode || 200;
-          const headers = (result as any)._headers || {};
-
-          res.statusCode = statusCode;
-
-          // Set all headers from metadata
-          for (const [key, value] of Object.entries(headers)) {
-            if (value !== undefined) {
-              res.setHeader(key, String(value));
-            }
+        // If streaming mode, stream chunks to HTTP response as they arrive
+        if (options.streaming) {
+          if (verbose) {
+            console.log(chalk.cyan('Starting streaming response...'));
           }
 
-          // Set Content-Type from ResponseStream if not already set in headers
-          // Check case-insensitively for Content-Type header
-          const hasContentType = Object.keys(headers).some(
-            key => key.toLowerCase() === 'content-type'
+          let headersSent = false;
+          let pendingStatus: number = 200;
+          let pendingHeaders: Record<
+            string,
+            string | number | readonly string[]
+          > = {};
+          let responseEnded = false;
+
+          // Call handler with (event, context) - wrapped handlers return ResponseStream
+          const result = await options.handler(
+            eventData as any,
+            contextData as any
           );
-          if (!hasContentType && contentType) {
-            res.setHeader('Content-Type', contentType);
+
+          // Handler should return a ResponseStream
+          if (!(result instanceof ResponseStream)) {
+            console.error(
+              chalk.red('✗ Streaming handler must return a ResponseStream')
+            );
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid streaming handler' }));
+            return;
           }
 
-          if (isBase64Encoded) {
-            res.end(Buffer.from(bufferedData.toString(), 'base64'));
-          } else {
-            res.end(bufferedData);
-          }
-        } else {
-          // API Gateway V2 response format
-          const statusCode = result.statusCode || 200;
-          const headers = result.headers || {};
-          const body = result.body || '';
-          const isBase64Encoded = result.isBase64Encoded || false;
+          const responseStream = result;
 
-          // Set status code
-          res.statusCode = statusCode;
+          const sendHeadersOnce = () => {
+            if (headersSent) return;
 
-          // Set headers
-          for (const [key, value] of Object.entries(headers)) {
-            if (value !== undefined) {
-              res.setHeader(key, String(value));
+            if (verbose) {
+              console.log(chalk.cyan('Sending headers...'), {
+                status: pendingStatus,
+                headers: pendingHeaders,
+              });
             }
-          }
 
-          // Set cookies if present
-          if (result.cookies && result.cookies.length > 0) {
-            res.setHeader('Set-Cookie', result.cookies);
-          }
+            // Prefer headers from metadata; fallback to ResponseStream content type
+            const hdrsLower = Object.fromEntries(
+              Object.keys(pendingHeaders).map(k => [k.toLowerCase(), k])
+            );
+            const hasCt = 'content-type' in hdrsLower;
+            const ct = responseStream.getContentType();
+            if (!hasCt && ct) {
+              pendingHeaders['Content-Type'] = ct;
+            }
 
-          // Send body
-          if (isBase64Encoded) {
-            res.end(Buffer.from(body, 'base64'));
+            // Write status and headers
+            res.statusCode = pendingStatus;
+            for (const [k, v] of Object.entries(pendingHeaders)) {
+              if (v !== undefined) res.setHeader(k, v as any);
+            }
+            headersSent = true;
+          };
+
+          // Apply metadata when available, before first byte
+          responseStream.once(
+            'metadata',
+            (m: { statusCode?: number; headers?: Record<string, any> }) => {
+              if (verbose) {
+                console.log(chalk.cyan('Received metadata:'), m);
+              }
+              if (typeof m?.statusCode === 'number')
+                pendingStatus = m.statusCode;
+              if (m?.headers && typeof m.headers === 'object') {
+                for (const [k, v] of Object.entries(m.headers)) {
+                  pendingHeaders[k] = v as any;
+                }
+              }
+            }
+          );
+
+          // Stream chunks to client as they're written
+          responseStream.on('chunk', (buf: Buffer) => {
+            if (verbose) {
+              console.log(chalk.cyan(`Streaming chunk: ${buf.length} bytes`));
+            }
+            if (!headersSent) sendHeadersOnce();
+
+            if (responseStream.getIsBase64Encoded()) {
+              res.write(Buffer.from(buf.toString(), 'base64'));
+            } else {
+              res.write(buf);
+            }
+          });
+
+          responseStream.once('finish', () => {
+            if (verbose) {
+              console.log(chalk.cyan('Stream finished'));
+            }
+            if (!headersSent) sendHeadersOnce();
+            if (!responseEnded) {
+              res.end();
+              responseEnded = true;
+            }
+          });
+
+          responseStream.once('error', err => {
+            console.error(
+              chalk.red(
+                `✗ Stream error: ${err instanceof Error ? err.message : String(err)}`
+              )
+            );
+            if (verbose && err instanceof Error)
+              console.error(chalk.red(err.stack));
+            if (!headersSent) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              headersSent = true;
+            }
+            if (!responseEnded) {
+              res.end(JSON.stringify({ error: 'Stream Error' }));
+              responseEnded = true;
+            }
+          });
+        } else {
+          // Non-streaming path
+          const result = await options.handler(
+            eventData as any,
+            contextData as any
+          );
+
+          if (!result) {
+            // Handler returned void - send empty 200 response
+            res.statusCode = 200;
+            res.end();
+          } else if (typeof result === 'string') {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end(result);
+          } else if (result instanceof ResponseStream) {
+            const bufferedData = result.getBufferedData();
+            const contentType = result.getContentType() || 'text/html';
+            const isBase64Encoded = result.getIsBase64Encoded() || false;
+            const statusCode = (result as any)._statusCode || 200;
+            const headers = (result as any)._headers || {};
+
+            res.statusCode = statusCode;
+
+            for (const [key, value] of Object.entries(headers)) {
+              if (value !== undefined) {
+                res.setHeader(key, String(value));
+              }
+            }
+
+            const hasContentType = Object.keys(headers).some(
+              key => key.toLowerCase() === 'content-type'
+            );
+            if (!hasContentType && contentType) {
+              res.setHeader('Content-Type', contentType);
+            }
+
+            if (isBase64Encoded) {
+              res.end(Buffer.from(bufferedData.toString(), 'base64'));
+            } else {
+              res.end(bufferedData);
+            }
           } else {
-            res.end(body);
+            // API Gateway V2 response format
+            const statusCode = result.statusCode || 200;
+            const headers = result.headers || {};
+            const body = result.body || '';
+            const isBase64Encoded = result.isBase64Encoded || false;
+
+            res.statusCode = statusCode;
+
+            for (const [key, value] of Object.entries(headers)) {
+              if (value !== undefined) {
+                res.setHeader(key, String(value));
+              }
+            }
+
+            if (result.cookies && result.cookies.length > 0) {
+              res.setHeader('Set-Cookie', result.cookies);
+            }
+
+            if (isBase64Encoded) {
+              res.end(Buffer.from(body, 'base64'));
+            } else {
+              res.end(body);
+            }
           }
         }
 
@@ -154,18 +289,26 @@ export function startWatchServer(options: WatchServerOptions): void {
           )
         );
       } catch (error) {
-        console.error(chalk.red(`✗ Error processing request: ${error}`));
+        console.error(
+          chalk.red(
+            `✗ Error processing request: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
         if (verbose && error instanceof Error) {
           console.error(chalk.red(error.stack));
         }
 
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            error: 'Internal Server Error',
-            message: error instanceof Error ? error.message : String(error),
-          })
-        );
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+        }
+        if (!res.writableEnded) {
+          res.end(
+            JSON.stringify({
+              error: 'Internal Server Error',
+              message: error instanceof Error ? error.message : String(error),
+            })
+          );
+        }
 
         const duration = Date.now() - startTime;
         console.log(

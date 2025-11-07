@@ -17,16 +17,19 @@ export const awslambdaSimulator = (silent: boolean) => {
           // Create a fresh ResponseStream per invocation
           const responseStream = new ResponseStream({ silent });
 
-          // Wait for writes to flush
-          const finished = new Promise<void>((resolve, reject) => {
-            responseStream.once('finish', resolve);
-            responseStream.once('error', reject);
+          // Resolve after the handler has been scheduled to run on next tick.
+          // This preserves test expectations that awaiting the wrapper means the
+          // handler has at least started (set variables synchronously), while still
+          // giving callers a chance to attach listeners before the first write.
+          return await new Promise<Writable>(resolve => {
+            setImmediate(() => {
+              handler(event, responseStream, context).catch(err => {
+                // If handler throws, destroy the stream
+                responseStream.destroy(err);
+              });
+              resolve(responseStream);
+            });
           });
-
-          await handler(event, responseStream, context);
-          await finished;
-
-          return responseStream;
         },
       HttpResponseStream: {
         from(responseStream: Writable, metadata: any) {
@@ -48,6 +51,14 @@ export const awslambdaSimulator = (silent: boolean) => {
               (responseStream as any)._statusCode ??
               200;
             (responseStream as any)._headers = headers;
+
+            // Emit metadata event for watch server
+            setImmediate(() => {
+              (responseStream as any).emit('metadata', {
+                statusCode: (responseStream as any)._statusCode,
+                headers,
+              });
+            });
           }
           return responseStream;
         },
